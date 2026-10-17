@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#66d3c8" />
+  <meta name="description" content="喵喵捞鱼记 —— 一个轻松可爱的猫咪捞鱼小游戏。移动小猫碰到小鱼，注意躲开河豚！" />
+  <meta property="og:title" content="喵喵捞鱼记 · Neko Fishing" />
+  <meta property="og:description" content="套上泳圈，帮小猫在 60 秒内捞满一篮小鱼吧。" />
+  <meta property="og:type" content="website" />
+  <title>喵喵捞鱼记 · Neko Fishing</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="stylesheet" href="css/overlays.css" />
+</head>
+<body>
+  <main id="app" class="app">
+    <canvas id="pond" role="img" aria-label="猫咪在池塘中捞鱼的游戏画面"></canvas>
+
+    <header class="hud" id="hud" aria-hidden="true">
+      <div class="hud-side">
+        <div class="pill timer-pill" id="timerPill">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="13" r="8.2" fill="none" stroke="currentColor" stroke-width="2.2" />
+            <path d="M12 8.7v4.6l2.8 1.8M9.5 3.2h5M12 3.2v1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
+          <strong id="timerValue">60</strong>
+          <span>秒</span>
+        </div>
+        <div class="pill best-pill">
+          <span>最佳</span>
+          <strong id="bestValue">0</strong>
+        </div>
+      </div>
+
+      <div class="score-block">
+        <span class="score-label">本局得分</span>
+        <strong class="score" id="scoreValue">0</strong>
+        <div class="combo-tag" id="comboTag">
+          <span id="comboValue">×2</span>
+          <span class="combo-word">连击</span>
+          <i class="combo-track"><i id="comboBar"></i></i>
+        </div>
+      </div>
+
+      <div class="hud-side hud-right">
+        <button class="icon-btn" id="soundBtn" type="button" aria-label="关闭声音" aria-pressed="true">
+          <svg class="icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4.5 9.3h3L12 5.5v13l-4.5-3.8h-3z" fill="currentColor" />
+            <path d="M15 8.5c1.8 1.8 1.8 5.2 0 7M17.8 6c3 3 3 9 0 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+          <svg class="icon-sound-off" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4.5 9.3h3L12 5.5v13l-4.5-3.8h-3z" fill="currentColor" />
+            <path d="m15.2 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <button class="dash-btn" id="dashBtn" type="button" aria-label="冲刺">
+      <span class="dash-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M13.4 2 5.8 13.2h5.1L9.8 22l7.8-11.4h-5.2z" fill="currentColor"/></svg>
+      </span>
+      <span class="dash-label">冲刺</span>
+      <span class="dash-key">空格</span>
+      <span class="dash-cd" id="dashCd" aria-hidden="true"></span>
+    </button>
+
+    <div class="hint" id="hint">移动小猫，碰到小鱼就能捞到！</div>
+
+    <section class="overlay" id="menuOverlay" aria-labelledby="gameTitle">
+      <div class="card menu-card">
+        <div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="eyebrow">NEKO FISHING</div>
+        <h1 id="gameTitle">
+          <svg class="cat-mark" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M13 27 9.5 8.5 26 17.6a25 25 0 0 1 12 0L54.5 8.5 51 27a22 22 0 1 1-38 0Z" fill="#ffbe7d"/>
+            <path d="m15.3 12.7-2 13.2 10.2-5.4zM48.7 12.7l2 13.2-10.2-5.4z" fill="#f59a76"/>
+            <circle cx="32" cy="36" r="20" fill="#ffcf9c"/>
+            <path d="M23.5 19.5c1.7 2.7 2.3 5 2.2 7.5M32 17.5c.5 2.8.4 5.5 0 8.2M40.5 19.5c-1.7 2.7-2.3 5-2.2 7.5" fill="none" stroke="#e99b58" stroke-width="2.6" stroke-linecap="round"/>
+            <ellipse cx="24.5" cy="36.5" rx="2.7" ry="3.5" fill="#4a3b32"/>
+            <ellipse cx="39.5" cy="36.5" rx="2.7" ry="3.5" fill="#4a3b32"/>
+            <circle cx="25.5" cy="35.3" r=".9" fill="#fff"/>
+            <circle cx="40.5" cy="35.3" r=".9" fill="#fff"/>
+            <path d="m32 41 2.4 1.8-2.4 1.7-2.4-1.7z" fill="#ec7c8c"/>
+            <path d="M32 44.5c0 2.1-2 3.2-3.8 2.3M32 44.5c0 2.1 2 3.2 3.8 2.3" fill="none" stroke="#7b5944" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="24" cy="44" r="3.6" fill="#f7a6a7" opacity=".5"/>
+            <circle cx="40" cy="44" r="3.6" fill="#f7a6a7" opacity=".5"/>
+          </svg>
+          <span>喵喵捞鱼记</span>
+        </h1>
+        <p class="lead">套上泳圈，帮小猫捞满一篮小鱼吧。</p>
+
+        <div class="how">
+          <div class="how-item">
+            <span class="how-icon">🖱️</span>
+            <div><b>移动小猫</b><small>鼠标 / 触屏 / WASD</small></div>
+          </div>
+          <div class="how-item">
+            <span class="how-icon">⚡</span>
+            <div><b>冲刺加速</b><small>空格 / 右下角按钮</small></div>
+          </div>
+          <div class="how-item">
+            <span class="how-icon">🐡</span>
+            <div><b>躲开河豚</b><small>碰到会扣 4 秒</small></div>
+          </div>
+        </div>
+
+        <button class="primary-btn" id="startBtn" type="button">
+          <span>开始捞鱼</span>
+          <span class="btn-arrow" aria-hidden="true">→</span>
+        </button>
+        <p class="best-line">历史最佳 <strong id="menuBest">0</strong> 分</p>
+      </div>
+    </section>
+
+    <section class="overlay is-hidden" id="overOverlay" aria-labelledby="overTitle">
+      <div class="card over-card">
+        <div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="eyebrow">TIME'S UP</div>
+        <h2 id="overTitle">时间到啦！</h2>
+        <p class="lead" id="rankLine">小猫今天也很努力呢。</p>
+        <div class="result-score">
+          <span>本局得分</span>
+          <strong id="finalScore">0</strong>
+        </div>
+        <div class="result-grid">
+          <div><span>捞到小鱼</span><strong id="finalCaught">0</strong></div>
+          <div><span>最高连击</span><strong id="finalCombo">0</strong></div>
+          <div><span>历史最佳</span><strong id="finalBest">0</strong></div>
+        </div>
+        <p class="new-best is-hidden" id="newBest">✦ 新纪录 ✦</p>
+        <button class="primary-btn" id="replayBtn" type="button">
+          <span>再捞一篮</span>
+          <span class="btn-arrow" aria-hidden="true">→</span>
+        </button>
+      </div>
+    </section>
+
+    <div class="flash" id="flash" aria-hidden="true"></div>
+    <p class="sr-only" id="liveRegion" aria-live="polite"></p>
+  </main>
+
+  <noscript>
+    <p class="noscript">请开启 JavaScript 才能和小猫一起捞鱼。</p>
+  </noscript>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
