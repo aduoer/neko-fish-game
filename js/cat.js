@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { TAU, clamp, damp, drawStar, rand } from "./utils.js";
+import { TAU, clamp, damp, rand } from "./utils.js";
 
 export class Cat {
   constructor(scale = 1) {
@@ -15,8 +15,6 @@ export class Cat {
     this.dashDirX = 0;
     this.dashDirY = -1;
     this.wakeTimer = 0;
-    this.dizzy = 0;
-    this.invulnerable = 0;
     this.catchPop = 0;
     this.blink = 0;
     this.blinkTimer = rand(1.5, 4);
@@ -46,8 +44,6 @@ export class Cat {
     this.scale = scale;
     this.dashTime = 0;
     this.dashCooldown = 0;
-    this.dizzy = 0;
-    this.invulnerable = 0;
     this.catchPop = 0;
     this.events.length = 0;
   }
@@ -66,7 +62,7 @@ export class Cat {
   }
 
   triggerDash() {
-    if (this.dashCooldown > 0 || this.dashTime > 0 || this.dizzy > 0) return false;
+    if (this.dashCooldown > 0 || this.dashTime > 0) return false;
     const dx = this.targetX - this.x;
     const dy = this.targetY - this.y;
     const distance = Math.hypot(dx, dy);
@@ -86,21 +82,10 @@ export class Cat {
     return true;
   }
 
-  hitPuffer() {
-    this.dizzy = 1.05;
-    this.invulnerable = 1.2;
-    this.dashTime = 0;
-    this.vx = 0;
-    this.vy = 0;
-    this.catchPop = 0;
-  }
-
   update(dt, env) {
     this.time += dt;
     const { bounds, keysX, keysY } = env;
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
-    this.invulnerable = Math.max(0, this.invulnerable - dt);
-    this.dizzy = Math.max(0, this.dizzy - dt);
     this.catchPop = Math.max(0, this.catchPop - dt);
     this.blinkTimer -= dt;
     if (this.blinkTimer <= 0) {
@@ -116,7 +101,7 @@ export class Cat {
       this.targetY = this.y + (keysY / length) * 260;
     }
 
-    const maxSpeed = CONFIG.catSpeed * this.scale * (this.dizzy > 0 ? 0.38 : 1);
+    const maxSpeed = CONFIG.catSpeed * this.scale;
 
     if (this.dashTime > 0) {
       this.dashTime = Math.max(0, this.dashTime - dt);
@@ -190,30 +175,24 @@ export class Cat {
     const moving = clamp(speed / (CONFIG.catSpeed * S), 0, 1.4);
     const bob = Math.sin(time * 2.5) * 2.2;
     const tilt = clamp(this.vx / (CONFIG.catSpeed * S), -1, 1) * 0.1;
-    const dizzyWobble = this.dizzy > 0 ? Math.sin(this.time * 24) * 0.08 : 0;
-    const flicker =
-      this.invulnerable > 0 && Math.floor(this.invulnerable * 14) % 2 === 0 ? 0.5 : 1;
 
     ctx.save();
-    ctx.globalAlpha = flicker;
     ctx.translate(this.x, this.y);
 
     this.drawRipple(ctx, time, moving);
 
     ctx.translate(0, bob);
-    ctx.rotate(tilt + dizzyWobble);
+    ctx.rotate(tilt);
     ctx.scale(S, S);
 
     this.drawTail(ctx, time, moving);
     this.drawRing(ctx, time, moving);
     this.drawPaws(ctx);
     this.drawHead(ctx, time, moving);
-    this.drawDizzyStars(ctx, time);
 
     if (this.isDashing) this.drawSpeedLines(ctx, moving);
 
     ctx.restore();
-    ctx.globalAlpha = 1;
   }
 
   drawRipple(ctx, time, moving) {
@@ -472,12 +451,6 @@ export class Cat {
   }
 
   drawEyes(ctx, time, moving) {
-    if (this.dizzy > 0) {
-      this.drawDizzyEye(ctx, -15);
-      this.drawDizzyEye(ctx, 15);
-      return;
-    }
-
     const happy = this.catchPop > 0.08;
     const blink = this.blink > 0;
     if (blink) {
@@ -530,20 +503,6 @@ export class Cat {
     }
   }
 
-  drawDizzyEye(ctx, x) {
-    ctx.save();
-    ctx.strokeStyle = "#60443a";
-    ctx.lineWidth = 2.8;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(x - 5, -7);
-    ctx.lineTo(x + 5, 5);
-    ctx.moveTo(x + 5, -7);
-    ctx.lineTo(x - 5, 5);
-    ctx.stroke();
-    ctx.restore();
-  }
-
   drawDaisy(ctx, x, y, time) {
     ctx.save();
     ctx.translate(x, y);
@@ -561,21 +520,6 @@ export class Cat {
     ctx.beginPath();
     ctx.arc(0, 0, 2.8, 0, TAU);
     ctx.fill();
-    ctx.restore();
-  }
-
-  drawDizzyStars(ctx, time) {
-    if (this.dizzy <= 0) return;
-    ctx.save();
-    ctx.translate(0, -58);
-    for (let i = 0; i < 3; i += 1) {
-      const angle = time * 5 + (i / 3) * TAU;
-      const x = Math.cos(angle) * 26;
-      const y = Math.sin(angle) * 8;
-      ctx.fillStyle = i === 0 ? "#ffd45d" : "#fff3bd";
-      drawStar(ctx, x, y, 4.8, 1.8, 4);
-      ctx.fill();
-    }
     ctx.restore();
   }
 

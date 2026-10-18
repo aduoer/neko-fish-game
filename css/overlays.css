@@ -311,19 +311,6 @@ h2 {
 
 /* ---------- Misc ---------- */
 
-.flash {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  pointer-events: none;
-  background: radial-gradient(circle at 50% 55%, rgba(255, 92, 92, 0.08), rgba(221, 52, 70, 0.38));
-  opacity: 0;
-}
-
-.flash.is-active {
-  animation: hitFlash 0.45s ease-out;
-}
-
 .sr-only {
   position: absolute;
   width: 1px;
@@ -382,12 +369,6 @@ h2 {
 @keyframes bestShine {
   0%, 100% { opacity: 0.6; }
   50% { opacity: 1; text-shadow: 0 0 14px rgba(255, 197, 71, 0.75); }
-}
-
-@keyframes hitFlash {
-  0% { opacity: 0; }
-  18% { opacity: 1; }
-  100% { opacity: 0; }
 }
 
 /* ---------- Responsive ---------- */

@@ -130,12 +130,6 @@ export class AudioKit {
     }
   }
 
-  puffer() {
-    this.note({ freq: 180, endFreq: 72, duration: 0.4, volume: 0.24, type: "sawtooth" });
-    this.note({ freq: 92, endFreq: 58, duration: 0.34, volume: 0.16, type: "square", delay: 0.03 });
-    this.noise({ duration: 0.24, volume: 0.1, from: 300, to: 90 });
-  }
-
   dash() {
     this.noise({ duration: 0.22, volume: 0.15, from: 1200, to: 260 });
     this.note({ freq: 260, endFreq: 520, duration: 0.16, volume: 0.08, type: "sine" });

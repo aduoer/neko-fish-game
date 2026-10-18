@@ -45,7 +45,6 @@ const ui = {
   finalBest: document.getElementById("finalBest"),
   newBest: document.getElementById("newBest"),
   replayBtn: document.getElementById("replayBtn"),
-  flash: document.getElementById("flash"),
   liveRegion: document.getElementById("liveRegion"),
 };
 
@@ -196,25 +195,16 @@ function makeFish(type, awayFromCat = true) {
 }
 
 function pickFishType() {
-  const progress = clamp(state.elapsed / CONFIG.duration, 0, 1);
-  const pufferCount = fishList.filter((fish) => fish.isPuffer).length;
-  const type = weightedPick([
-    { value: "sardine", weight: 58 },
-    { value: "koi", weight: 27 },
-    { value: "gold", weight: 8 },
-    { value: "puffer", weight: pufferCount >= 2 ? 0 : 8 + progress * 12 },
+  return weightedPick([
+    { value: "sardine", weight: 62 },
+    { value: "koi", weight: 28 },
+    { value: "gold", weight: 10 },
   ]);
-  return type;
 }
 
 function addFish(type = null, awayFromCat = true) {
   if (fishList.length >= CONFIG.maxFish) return;
-  const fishType = type ?? pickFishType();
-  if (fishType === "puffer") {
-    const pufferCount = fishList.filter((fish) => fish.isPuffer).length;
-    if (pufferCount >= 2) return;
-  }
-  fishList.push(makeFish(fishType, awayFromCat));
+  fishList.push(makeFish(type ?? pickFishType(), awayFromCat));
 }
 
 function seedMenuFish() {
@@ -389,12 +379,6 @@ function endGame() {
   }, 620);
 }
 
-function flashScreen() {
-  ui.flash.classList.remove("is-active");
-  void ui.flash.offsetWidth;
-  ui.flash.classList.add("is-active");
-}
-
 function catchFish(fish) {
   state.combo += 1;
   state.comboTimer = CONFIG.comboWindow;
@@ -409,23 +393,11 @@ function catchFish(fish) {
   particles.catchBurst(fish.x, fish.y, {
     special: fish.isGold,
     text: `+${gain}`,
+    heart: { x: cat.x, y: cat.y - 24 },
   });
   audio.catchFish(state.combo, fish.isGold);
   popScore();
   syncHud();
-}
-
-function hitPuffer(fish) {
-  state.timeLeft = Math.max(0, state.timeLeft - CONFIG.pufferPenalty);
-  state.combo = 0;
-  state.comboTimer = 0;
-  state.shake = 18;
-  cat.hitPuffer();
-  particles.pufferBurst(fish.x, fish.y);
-  flashScreen();
-  audio.puffer();
-  syncHud(true);
-  ui.liveRegion.textContent = `碰到河豚，扣除 ${CONFIG.pufferPenalty} 秒。`;
 }
 
 function checkCatches() {
@@ -434,14 +406,8 @@ function checkCatches() {
     const catchDistance = cat.catchRadius + fish.radius;
     if (distSq(cat.x, cat.y, fish.x, fish.y) > catchDistance * catchDistance) continue;
 
-    if (fish.isPuffer) {
-      if (cat.invulnerable > 0) continue;
-      fishList.splice(i, 1);
-      hitPuffer(fish);
-    } else {
-      fishList.splice(i, 1);
-      catchFish(fish);
-    }
+    fishList.splice(i, 1);
+    catchFish(fish);
   }
 
   if (state.timeLeft <= 0 && state.mode === "playing") endGame();

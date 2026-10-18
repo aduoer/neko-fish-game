@@ -112,62 +112,29 @@ export class Particles {
       });
     }
 
-    if (options.special) {
-      for (let i = 0; i < 4; i += 1) {
-        this.add({
-          kind: "heart",
-          x: x + rand(-12, 12),
-          y: y + rand(-12, 12),
-          vx: rand(-35, 35),
-          vy: rand(-85, -38),
-          gravity: -8,
-          size: rand(8, 14),
-          life: rand(0.7, 1.2),
-          color: "#ff8fa8",
-        });
-      }
-    }
+    this.hearts(options.heart ?? { x, y }, options.special);
   }
 
-  pufferBurst(x, y) {
-    for (let i = 0; i < 12; i += 1) {
-      const angle = rand(-Math.PI, 0);
-      const speed = rand(50, 170);
+  hearts(origin, special = false) {
+    const colors = special
+      ? ["#ff8fa8", "#ffb3c6", "#ffd9e2"]
+      : ["#ff9fb2", "#ffbfcd", "#ffdbe3"];
+    const count = special ? 9 : 5;
+    for (let i = 0; i < count; i += 1) {
       this.add({
-        kind: "sparkle",
-        x,
-        y,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        gravity: 150,
-        drag: 0.97,
-        size: rand(3, 7),
-        rotation: rand(0, TAU),
-        spin: rand(-7, 7),
-        life: rand(0.35, 0.7),
-        color: pick(["#ff9c9c", "#ffd2a6", "#ff6d7c", "#f7f0dc"]),
+        kind: "heart",
+        x: origin.x + rand(-26, 26),
+        y: origin.y + rand(-8, 10),
+        vx: rand(-46, 46),
+        vy: rand(-104, -52),
+        gravity: -12,
+        drag: 0.99,
+        size: rand(11, special ? 20 : 16),
+        rotation: rand(-0.35, 0.35),
+        life: rand(0.85, 1.4),
+        color: pick(colors),
       });
     }
-    this.add({
-      kind: "ring",
-      x,
-      y,
-      size: 6,
-      grow: 110,
-      life: 0.45,
-      color: "rgba(255, 114, 124, 0.7)",
-    });
-    this.add({
-      kind: "text",
-      x,
-      y: y - 20,
-      vy: -38,
-      size: 19,
-      life: 0.85,
-      color: "#ffd8d8",
-      text: "-4 秒",
-      stroke: "rgba(120, 24, 38, 0.5)",
-    });
   }
 
   dashWake(x, y, angle) {
@@ -294,6 +261,7 @@ export class Particles {
         ctx.fill();
       } else if (p.kind === "heart") {
         ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation || 0);
         ctx.fillStyle = p.color;
         drawHeart(ctx, 0, 0, p.size);
         ctx.fill();

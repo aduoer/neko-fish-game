@@ -9,7 +9,6 @@ export const CONFIG = Object.freeze({
   initialFish: 8,
   maxFish: 13,
   catchRadius: 56,
-  pufferPenalty: 4,
   fleeRadius: 155,
   hintDuration: 4.2,
 });
@@ -56,20 +55,6 @@ export const FISH_TYPES = Object.freeze({
     stripe: "#f7c437",
     fin: "rgba(255, 221, 104, 0.72)",
     weight: 12,
-  },
-  puffer: {
-    label: "河豚",
-    points: 0,
-    radius: 18,
-    minSpeed: 46,
-    maxSpeed: 72,
-    fleeSpeed: 92,
-    body: "#ffd98f",
-    belly: "#fff4d7",
-    accent: "#d99835",
-    stripe: "#eeb85b",
-    fin: "rgba(224, 174, 82, 0.66)",
-    weight: 0,
   },
 });
 

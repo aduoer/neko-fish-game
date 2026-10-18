@@ -21,10 +21,6 @@ export class Fish {
     this.spawnFade = 0;
   }
 
-  get isPuffer() {
-    return this.type === "puffer";
-  }
-
   get isGold() {
     return this.type === "gold";
   }
@@ -47,7 +43,7 @@ export class Fish {
     const distance = Math.hypot(dx, dy);
     const fleeRadius = env.fleeRadius;
 
-    if (!this.isPuffer && distance < fleeRadius && distance > 0.001) {
+    if (distance < fleeRadius && distance > 0.001) {
       const away = Math.atan2(dy, dx);
       const sideStep = Math.sin(this.phase) > 0 ? 0.32 : -0.32;
       this.angle = rotateTowards(this.angle, away + sideStep, 5.2 * dt);
@@ -112,8 +108,7 @@ export class Fish {
 
     ctx.rotate(this.angle);
     ctx.scale(this.depth, this.depth);
-    if (this.isPuffer) this.drawPuffer(ctx, time, r);
-    else this.drawFish(ctx, time, r);
+    this.drawFish(ctx, time, r);
     ctx.restore();
   }
 
@@ -142,17 +137,6 @@ export class Fish {
         ctx.fill();
         ctx.restore();
       }
-    } else if (this.isPuffer) {
-      const pulse = 0.5 + Math.sin(time * 2.6 + this.phase) * 0.5;
-      ctx.save();
-      ctx.globalAlpha = 0.16 + pulse * 0.1;
-      ctx.strokeStyle = "#ff7b7b";
-      ctx.lineWidth = 1.4;
-      ctx.setLineDash([2, 6]);
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.7, 0, TAU);
-      ctx.stroke();
-      ctx.restore();
     }
   }
 
@@ -285,120 +269,5 @@ export class Fish {
     ctx.beginPath();
     ctx.arc(r * 1.05, r * 0.08, r * 0.14, 0.2, 1.4);
     ctx.stroke();
-  }
-
-  drawPuffer(ctx, time, r) {
-    const spec = this.spec;
-    const pulse = 0.5 + Math.sin(time * 2.6 + this.phase) * 0.5;
-    const bodyR = r * (1.12 + pulse * 0.035);
-
-    // Tail
-    ctx.fillStyle = spec.fin;
-    ctx.beginPath();
-    ctx.moveTo(-bodyR * 0.82, 0);
-    ctx.quadraticCurveTo(-bodyR * 1.5, -bodyR * 0.52, -bodyR * 1.75, -bodyR * 0.1);
-    ctx.quadraticCurveTo(-bodyR * 1.45, 0, -bodyR * 1.75, bodyR * 0.56);
-    ctx.quadraticCurveTo(-bodyR * 1.4, bodyR * 0.42, -bodyR * 0.82, 0);
-    ctx.fill();
-
-    // Spikes
-    ctx.fillStyle = spec.accent;
-    const spikes = 14;
-    for (let i = 0; i < spikes; i += 1) {
-      const angle = (i / spikes) * TAU + Math.sin(this.phase) * 0.02;
-      const innerAngle = angle - 0.13;
-      const outerAngle = angle + 0.13;
-      const baseR = bodyR * 1.02;
-      const tipR = bodyR * (1.4 + pulse * 0.1);
-      ctx.beginPath();
-      ctx.moveTo(Math.cos(innerAngle) * baseR, Math.sin(innerAngle) * baseR);
-      ctx.lineTo(Math.cos(angle) * tipR, Math.sin(angle) * tipR);
-      ctx.lineTo(Math.cos(outerAngle) * baseR, Math.sin(outerAngle) * baseR);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    // Body
-    const gradient = ctx.createRadialGradient(
-      -bodyR * 0.28,
-      -bodyR * 0.32,
-      bodyR * 0.1,
-      0,
-      0,
-      bodyR,
-    );
-    gradient.addColorStop(0, "#fff1bd");
-    gradient.addColorStop(0.65, spec.body);
-    gradient.addColorStop(1, "#f1bd5c");
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.arc(0, 0, bodyR, 0, TAU);
-    ctx.fill();
-
-    // Belly
-    ctx.globalAlpha = 0.68;
-    ctx.fillStyle = spec.belly;
-    ctx.beginPath();
-    ctx.ellipse(bodyR * 0.08, bodyR * 0.34, bodyR * 0.58, bodyR * 0.42, 0, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-
-    // Fins
-    ctx.fillStyle = spec.fin;
-    ctx.beginPath();
-    ctx.ellipse(bodyR * 0.24, -bodyR * 0.95, bodyR * 0.22, bodyR * 0.12, -0.5, 0, TAU);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-bodyR * 0.34, bodyR * 0.8, bodyR * 0.24, bodyR * 0.12, 0.5, 0, TAU);
-    ctx.fill();
-
-    // Eyes
-    const eyeY = -bodyR * 0.18;
-    ctx.fillStyle = "#fffdf4";
-    ctx.beginPath();
-    ctx.arc(-bodyR * 0.3, eyeY, bodyR * 0.21, 0, TAU);
-    ctx.arc(bodyR * 0.3, eyeY, bodyR * 0.21, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = "#46362f";
-    ctx.beginPath();
-    ctx.arc(-bodyR * 0.27, eyeY + bodyR * 0.015, bodyR * 0.105, 0, TAU);
-    ctx.arc(bodyR * 0.33, eyeY + bodyR * 0.015, bodyR * 0.105, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(-bodyR * 0.24, eyeY - bodyR * 0.03, bodyR * 0.035, 0, TAU);
-    ctx.arc(bodyR * 0.36, eyeY - bodyR * 0.03, bodyR * 0.035, 0, TAU);
-    ctx.fill();
-
-    // Angry brows
-    ctx.strokeStyle = "#9c6a2c";
-    ctx.lineWidth = Math.max(1.4, bodyR * 0.085);
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(-bodyR * 0.5, eyeY - bodyR * 0.3);
-    ctx.lineTo(-bodyR * 0.22, eyeY - bodyR * 0.22);
-    ctx.moveTo(bodyR * 0.5, eyeY - bodyR * 0.3);
-    ctx.lineTo(bodyR * 0.22, eyeY - bodyR * 0.22);
-    ctx.stroke();
-
-    // Mouth
-    ctx.strokeStyle = "#9c6a2c";
-    ctx.lineWidth = Math.max(1.2, bodyR * 0.07);
-    ctx.beginPath();
-    ctx.arc(0, bodyR * 0.28, bodyR * 0.13, 0.15, Math.PI - 0.15);
-    ctx.stroke();
-    ctx.fillStyle = "#f09c89";
-    ctx.beginPath();
-    ctx.ellipse(0, bodyR * 0.46, bodyR * 0.11, bodyR * 0.07, 0, 0, TAU);
-    ctx.fill();
-
-    // Cheeks
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = "#ff8f84";
-    ctx.beginPath();
-    ctx.arc(-bodyR * 0.58, bodyR * 0.22, bodyR * 0.13, 0, TAU);
-    ctx.arc(bodyR * 0.58, bodyR * 0.22, bodyR * 0.13, 0, TAU);
-    ctx.fill();
-    ctx.globalAlpha = 1;
   }
 }
