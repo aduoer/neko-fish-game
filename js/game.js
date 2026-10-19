@@ -1,52 +1,36 @@
-import { CONFIG, FISH_TYPES, SCORE_RANKS } from "./config.js";
+import { CONFIG, FISH_TYPES, comboMultiplier } from "./config.js";
 import {
   clamp,
   distSq,
-  formatClock,
   pick,
   rand,
   readNumber,
   weightedPick,
   writeValue,
+  TAU,
 } from "./utils.js";
 import { AudioKit } from "./audio.js";
 import { PondBackground } from "./background.js";
 import { Particles } from "./particles.js";
 import { Fish } from "./fish.js";
 import { Cat } from "./cat.js";
+import { clearKeys, keyDirection, setupInput } from "./input.js";
+import {
+  ui,
+  fillResults,
+  hideBanner,
+  popScore,
+  resetHudCache,
+  showBanner,
+  syncDashUi,
+  syncHud,
+  updateSoundButton,
+} from "./ui.js";
 
 const BEST_KEY = "neko-fish-best";
 
 const canvas = document.getElementById("pond");
 const ctx = canvas.getContext("2d", { alpha: false });
-
-const ui = {
-  hud: document.getElementById("hud"),
-  timerPill: document.getElementById("timerPill"),
-  timerValue: document.getElementById("timerValue"),
-  bestValue: document.getElementById("bestValue"),
-  scoreValue: document.getElementById("scoreValue"),
-  comboTag: document.getElementById("comboTag"),
-  comboValue: document.getElementById("comboValue"),
-  comboBar: document.getElementById("comboBar"),
-  soundBtn: document.getElementById("soundBtn"),
-  dashBtn: document.getElementById("dashBtn"),
-  dashCd: document.getElementById("dashCd"),
-  hint: document.getElementById("hint"),
-  menuOverlay: document.getElementById("menuOverlay"),
-  menuBest: document.getElementById("menuBest"),
-  startBtn: document.getElementById("startBtn"),
-  overOverlay: document.getElementById("overOverlay"),
-  overTitle: document.getElementById("overTitle"),
-  rankLine: document.getElementById("rankLine"),
-  finalScore: document.getElementById("finalScore"),
-  finalCaught: document.getElementById("finalCaught"),
-  finalCombo: document.getElementById("finalCombo"),
-  finalBest: document.getElementById("finalBest"),
-  newBest: document.getElementById("newBest"),
-  replayBtn: document.getElementById("replayBtn"),
-  liveRegion: document.getElementById("liveRegion"),
-};
 
 const audio = new AudioKit();
 const background = new PondBackground();
@@ -58,6 +42,7 @@ const state = {
   score: 0,
   best: readNumber(BEST_KEY, 0),
   caught: 0,
+  goldCaught: 0,
   combo: 0,
   comboTimer: 0,
   bestCombo: 0,
@@ -69,6 +54,14 @@ const state = {
   hintTimer: 0,
   paused: false,
   pointerId: null,
+  frenzyIndex: 0,
+  frenzyActive: false,
+  frenzyTimer: 0,
+  bonusTimer: 0,
+  magnetTimer: 0,
+  hitStop: 0,
+  kingSpawned: false,
+  touchPoint: null,
 };
 
 let width = 0;
@@ -78,20 +71,8 @@ let scale = 1;
 let vignette = null;
 let endOverlayTimer = 0;
 let lastFrame = performance.now();
-let hudScore = -1;
-let hudTime = -1;
-let hudCombo = -1;
-let hudComboVisible = false;
-let dashWasCooling = null;
 
 const fishList = [];
-
-const keys = {
-  up: false,
-  down: false,
-  left: false,
-  right: false,
-};
 
 function getBounds() {
   return {
@@ -99,13 +80,6 @@ function getBounds() {
     right: width - 14,
     top: width < 600 ? 88 : 102,
     bottom: height - (width < 600 ? 88 : 44),
-  };
-}
-
-function getKeyDirection() {
-  return {
-    x: (keys.right ? 1 : 0) - (keys.left ? 1 : 0),
-    y: (keys.down ? 1 : 0) - (keys.up ? 1 : 0),
   };
 }
 
@@ -195,15 +169,20 @@ function makeFish(type, awayFromCat = true) {
 }
 
 function pickFishType() {
+  const pressure = clamp(state.elapsed / CONFIG.duration, 0, 1);
   return weightedPick([
-    { value: "sardine", weight: 62 },
-    { value: "koi", weight: 28 },
-    { value: "gold", weight: 10 },
+    { value: "sardine", weight: 62 - pressure * 30 },
+    { value: "koi", weight: 28 + pressure * 14 },
+    { value: "gold", weight: 10 + pressure * 16 },
   ]);
 }
 
+function maxFishNow() {
+  return state.frenzyActive ? CONFIG.maxFishFrenzy : CONFIG.maxFish;
+}
+
 function addFish(type = null, awayFromCat = true) {
-  if (fishList.length >= CONFIG.maxFish) return;
+  if (fishList.length >= maxFishNow()) return;
   fishList.push(makeFish(type ?? pickFishType(), awayFromCat));
 }
 
@@ -219,61 +198,58 @@ function spawnInitialFish() {
   for (const type of openingTypes) addFish(type, true);
 }
 
-function multiplierForCombo(combo) {
-  return Math.min(CONFIG.maxMultiplier, 1 + Math.floor(combo / 2));
+function startFrenzy() {
+  state.frenzyActive = true;
+  state.frenzyTimer = CONFIG.frenzyDuration;
+  state.spawnTimer = 0;
+  for (let i = 0; i < CONFIG.frenzyBurst; i += 1) addFish(i === 0 ? "gold" : null);
+  showBanner({
+    kicker: "FISH TIDE",
+    title: "鱼潮来了！",
+    detail: "6 秒双倍积分，小鱼成群",
+    tone: "frenzy",
+    duration: 2800,
+  });
+  audio.frenzy();
 }
 
-function updateSoundButton() {
-  ui.soundBtn.classList.toggle("is-muted", !audio.enabled);
-  ui.soundBtn.setAttribute("aria-pressed", String(audio.enabled));
-  ui.soundBtn.setAttribute("aria-label", audio.enabled ? "关闭声音" : "开启声音");
+function spawnKing() {
+  if (state.kingSpawned) return;
+  state.kingSpawned = true;
+  const bounds = getBounds();
+  const king = makeFish("king", false);
+  king.x = rand(width * 0.28, width * 0.72);
+  king.y = rand(bounds.top + 95 * scale, height * 0.55);
+  king.angle = rand(0, TAU);
+  king.spawnFade = 0.7;
+  fishList.push(king);
+  showBanner({
+    kicker: "RARE CATCH",
+    title: "鱼王出现！",
+    detail: "抓住它，+20 分",
+    tone: "king",
+    duration: 3200,
+  });
+  audio.kingSpawn();
 }
 
-function syncHud(force = false) {
-  const time = formatClock(state.timeLeft);
-  if (force || time !== hudTime) {
-    hudTime = time;
-    ui.timerValue.textContent = String(time);
-    ui.timerPill.classList.toggle("is-low", state.mode === "playing" && state.timeLeft <= 10);
+function updateEvents(dt) {
+  while (
+    state.frenzyIndex < CONFIG.frenzyTimes.length &&
+    state.elapsed >= CONFIG.frenzyTimes[state.frenzyIndex]
+  ) {
+    state.frenzyIndex += 1;
+    startFrenzy();
   }
 
-  if (force || state.score !== hudScore) {
-    hudScore = state.score;
-    ui.scoreValue.textContent = String(state.score);
-  }
+  if (!state.kingSpawned && state.elapsed >= CONFIG.kingSpawnAt) spawnKing();
 
-  const comboVisible = state.mode === "playing" && state.combo >= 2 && state.comboTimer > 0;
-  if (force || comboVisible !== hudComboVisible) {
-    hudComboVisible = comboVisible;
-    ui.comboTag.classList.toggle("is-visible", comboVisible);
+  if (state.frenzyActive) {
+    state.frenzyTimer = Math.max(0, state.frenzyTimer - dt);
+    if (state.frenzyTimer <= 0) state.frenzyActive = false;
   }
-
-  if (comboVisible && state.combo !== hudCombo) {
-    hudCombo = state.combo;
-    ui.comboValue.textContent = `×${multiplierForCombo(state.combo)}`;
-  }
-
-  if (comboVisible) {
-    const ratio = clamp(state.comboTimer / CONFIG.comboWindow, 0, 1);
-    ui.comboBar.style.transform = `scaleX(${ratio.toFixed(3)})`;
-  }
-}
-
-function popScore() {
-  ui.scoreValue.classList.remove("is-popping");
-  void ui.scoreValue.offsetWidth;
-  ui.scoreValue.classList.add("is-popping");
-}
-
-function syncDashUi() {
-  const cooling = cat.dashCooldown > 0;
-  if (cooling !== dashWasCooling) {
-    dashWasCooling = cooling;
-    ui.dashBtn.classList.toggle("is-cooling", cooling);
-    ui.dashBtn.setAttribute("aria-disabled", String(cooling));
-  }
-  const progress = clamp(cat.dashCooldown / CONFIG.dashCooldown, 0, 1);
-  ui.dashCd.style.setProperty("--cd", (progress * 100).toFixed(1));
+  state.bonusTimer = Math.max(0, state.bonusTimer - dt);
+  state.magnetTimer = Math.max(0, state.magnetTimer - dt);
 }
 
 function startGame() {
@@ -284,6 +260,7 @@ function startGame() {
   state.mode = "playing";
   state.score = 0;
   state.caught = 0;
+  state.goldCaught = 0;
   state.combo = 0;
   state.comboTimer = 0;
   state.bestCombo = 0;
@@ -293,13 +270,19 @@ function startGame() {
   state.bubbleTimer = 1;
   state.shake = 0;
   state.paused = false;
-  hudScore = -1;
-  hudTime = -1;
-  hudCombo = -1;
-  hudComboVisible = false;
-  dashWasCooling = null;
+  state.frenzyIndex = 0;
+  state.frenzyActive = false;
+  state.frenzyTimer = 0;
+  state.bonusTimer = 0;
+  state.magnetTimer = 0;
+  state.hitStop = 0;
+  state.kingSpawned = false;
+  state.touchPoint = null;
+  state.pointerId = null;
 
   particles.clear();
+  hideBanner();
+  resetHudCache();
 
   const bounds = getBounds();
   cat.place(
@@ -309,7 +292,6 @@ function startGame() {
   );
   spawnInitialFish();
   clearKeys();
-  state.pointerId = null;
   particles.splash(cat.x, cat.y + 16);
 
   ui.menuOverlay.classList.add("is-hidden");
@@ -320,14 +302,17 @@ function startGame() {
   ui.hud.setAttribute("aria-hidden", "false");
   ui.dashBtn.classList.add("is-visible");
   ui.hint.classList.add("is-visible");
-  ui.hint.textContent = "移动小猫，碰到小鱼就能捞到！";
-  state.hintTimer = CONFIG.hintDuration;
+  const touchPrimary = window.matchMedia("(pointer: coarse)").matches;
+  ui.hint.textContent = touchPrimary
+    ? "按住屏幕带着小猫走；双击或长按可以冲刺！"
+    : "移动小猫碰小鱼；点击或按空格可以冲刺！";
+  state.hintTimer = CONFIG.hintDuration + 1;
   ui.comboTag.classList.remove("is-visible");
   ui.timerPill.classList.remove("is-low");
 
-  syncHud(true);
-  updateSoundButton();
-  syncDashUi();
+  syncHud(state, true);
+  updateSoundButton(audio);
+  syncDashUi(cat, true);
   ui.liveRegion.textContent = "游戏开始，移动小猫去捞鱼吧。";
   audio.start();
 }
@@ -339,12 +324,17 @@ function endGame() {
   state.combo = 0;
   state.comboTimer = 0;
   state.hintTimer = 0;
+  state.bonusTimer = 0;
+  state.magnetTimer = 0;
+  state.frenzyActive = false;
+  state.hitStop = 0;
+  state.touchPoint = null;
+  cat.finishRound();
   ui.hint.classList.remove("is-visible");
   ui.dashBtn.classList.remove("is-visible");
   ui.comboTag.classList.remove("is-visible");
-  hudComboVisible = false;
-  hudTime = -1;
-  syncHud(true);
+  hideBanner();
+  syncHud(state, true);
 
   const previousBest = state.best;
   const isNewBest = state.score > previousBest;
@@ -354,19 +344,10 @@ function endGame() {
   }
   ui.bestValue.textContent = String(state.best);
   ui.menuBest.textContent = String(state.best);
-  ui.finalScore.textContent = String(state.score);
-  ui.finalCaught.textContent = String(state.caught);
-  ui.finalCombo.textContent = String(state.bestCombo);
-  ui.finalBest.textContent = String(state.best);
-  ui.newBest.classList.toggle("is-hidden", !isNewBest);
-  ui.overTitle.textContent = isNewBest ? "新纪录，喵！" : "时间到啦！";
 
-  const rank = SCORE_RANKS.reduce(
-    (current, entry) => (state.score >= entry.min ? entry : current),
-    SCORE_RANKS[0],
-  );
-  ui.rankLine.textContent = rank.text;
-  ui.liveRegion.textContent = `游戏结束，本局得分 ${state.score} 分，捞到 ${state.caught} 条小鱼。`;
+  const stars = fillResults(state, isNewBest);
+  ui.overTitle.textContent = isNewBest ? "新纪录，喵！" : "时间到啦！";
+  ui.liveRegion.textContent = `游戏结束，本局得分 ${state.score} 分，捞到 ${state.caught} 条小鱼，点亮 ${stars} 颗星。`;
   audio.gameOver();
 
   endOverlayTimer = window.setTimeout(() => {
@@ -375,6 +356,7 @@ function endGame() {
     ui.overOverlay.setAttribute("aria-hidden", "false");
     ui.replayBtn.focus({ preventScroll: true });
     particles.confetti(width);
+    if (stars === 3) particles.heartRain(width);
     if (isNewBest) audio.newBest();
   }, 620);
 }
@@ -383,40 +365,93 @@ function catchFish(fish) {
   state.combo += 1;
   state.comboTimer = CONFIG.comboWindow;
   state.bestCombo = Math.max(state.bestCombo, state.combo);
-  const multiplier = multiplierForCombo(state.combo);
-  const gain = fish.spec.points * multiplier;
+  const boost = (state.frenzyActive ? 2 : 1) * (state.bonusTimer > 0 ? 2 : 1);
+  const gain = fish.spec.points * comboMultiplier(state.combo) * boost;
 
   state.score += gain;
   state.caught += 1;
+  if (fish.type === "gold") state.goldCaught += 1;
   cat.triggerCatch();
-  state.shake = Math.max(state.shake, fish.isGold ? 6 : 2.5);
+  state.shake = Math.max(state.shake, fish.isKing ? 11 : fish.isGold ? 6 : 2.5);
   particles.catchBurst(fish.x, fish.y, {
     special: fish.isGold,
     text: `+${gain}`,
     heart: { x: cat.x, y: cat.y - 24 },
   });
   audio.catchFish(state.combo, fish.isGold);
+
+  if (state.combo === CONFIG.magnetCombo) {
+    state.magnetTimer = CONFIG.magnetDuration;
+    cat.triggerStarEyes();
+    showBanner({
+      kicker: "COMBO ×5",
+      title: "猫猫磁铁！",
+      detail: "小鱼会被吸过来",
+      tone: "magnet",
+      duration: 2200,
+    });
+    audio.milestone(1);
+  }
+
+  if (state.combo === CONFIG.bonusCombo) {
+    state.bonusTimer = CONFIG.bonusDuration;
+    cat.triggerStarEyes(CONFIG.starEyesDuration + 0.8);
+    particles.heartRain(width);
+    showBanner({
+      kicker: "COMBO ×10",
+      title: "爱心雨！",
+      detail: "3 秒双倍积分",
+      tone: "bonus",
+      duration: 2800,
+    });
+    audio.milestone(2);
+  }
+
+  if (fish.isKing) {
+    particles.hearts({ x: cat.x, y: cat.y - 24 }, true);
+    showBanner({
+      kicker: "KING CATCH",
+      title: "鱼王落网！",
+      detail:
+        state.combo === CONFIG.bonusCombo
+          ? `+${gain} 分 · 双倍积分开启`
+          : `+${gain} 分`,
+      tone: "king",
+      duration: 2000,
+    });
+    audio.kingCaught();
+  }
+
   popScore();
-  syncHud();
+  syncHud(state);
+}
+
+function pruneCaughtFish() {
+  for (let i = fishList.length - 1; i >= 0; i -= 1) {
+    if (fishList[i].caught && fishList[i].catchTimer <= 0) fishList.splice(i, 1);
+  }
 }
 
 function checkCatches() {
   for (let i = fishList.length - 1; i >= 0; i -= 1) {
     const fish = fishList[i];
+    if (fish.caught) continue;
     const catchDistance = cat.catchRadius + fish.radius;
     if (distSq(cat.x, cat.y, fish.x, fish.y) > catchDistance * catchDistance) continue;
 
-    fishList.splice(i, 1);
+    fish.startCatch({ x: cat.x, y: cat.y - 6 * scale });
     catchFish(fish);
+    state.hitStop = Math.max(state.hitStop, CONFIG.hitStop);
   }
 
   if (state.timeLeft <= 0 && state.mode === "playing") endGame();
 }
 
 function updateSpawning(dt) {
+  const frenzyBonus = state.frenzyActive ? 5 : 0;
   const targetCount = Math.min(
-    CONFIG.maxFish,
-    CONFIG.initialFish + Math.floor(state.elapsed / 18) * 2,
+    maxFishNow(),
+    CONFIG.initialFish + Math.floor(state.elapsed / 18) * 2 + frenzyBonus,
   );
 
   if (fishList.length < targetCount) {
@@ -424,10 +459,11 @@ function updateSpawning(dt) {
     if (state.spawnTimer <= 0) {
       addFish();
       const pressure = clamp(state.elapsed / CONFIG.duration, 0, 1);
-      state.spawnTimer = rand(0.34, 0.82) * (1 - pressure * 0.32);
+      const interval = rand(0.34, 0.82) * (1 - pressure * 0.32);
+      state.spawnTimer = state.frenzyActive ? interval * 0.5 : interval;
     }
   } else {
-    state.spawnTimer = Math.max(state.spawnTimer, 0.25);
+    state.spawnTimer = Math.max(state.spawnTimer, 0.18);
   }
 }
 
@@ -435,7 +471,8 @@ function updateAmbient(dt) {
   state.bubbleTimer -= dt;
   if (state.bubbleTimer <= 0) {
     state.bubbleTimer = rand(0.45, 1.3);
-    const source = fishList.length > 0 ? pick(fishList) : null;
+    const activeFish = fishList.filter((fish) => !fish.caught);
+    const source = activeFish.length > 0 ? pick(activeFish) : null;
     if (source) {
       particles.ambientBubble(source.x + source.radius * 0.7, source.y - source.radius * 0.35);
     } else {
@@ -473,6 +510,7 @@ function update(dt) {
       fleeRadius: CONFIG.fleeRadius * scale,
     };
     for (const fish of fishList) fish.update(dt, env);
+    pruneCaughtFish();
     return;
   }
 
@@ -483,7 +521,9 @@ function update(dt) {
   state.hintTimer = Math.max(0, state.hintTimer - dt);
   if (state.hintTimer <= 0) ui.hint.classList.remove("is-visible");
 
-  const direction = getKeyDirection();
+  updateEvents(dt);
+
+  const direction = keyDirection();
   cat.update(dt, {
     bounds: getBounds(),
     keysX: direction.x,
@@ -502,8 +542,14 @@ function update(dt) {
     speedFactor,
     fleeRadius: CONFIG.fleeRadius * scale,
   };
-  for (const fish of fishList) fish.update(dt, env);
+  for (const fish of fishList) {
+    fish.update(dt, env);
+    if (!fish.caught && state.magnetTimer > 0) {
+      fish.attract(dt, cat, CONFIG.magnetRadius * scale, CONFIG.magnetSpeed * scale);
+    }
+  }
 
+  pruneCaughtFish();
   checkCatches();
   if (state.mode !== "playing") return;
 
@@ -512,8 +558,8 @@ function update(dt) {
 
   if (state.timeLeft <= 0) endGame();
 
-  syncHud();
-  syncDashUi();
+  syncHud(state);
+  syncDashUi(cat);
 }
 
 function render() {
@@ -547,6 +593,37 @@ function render() {
   }
   ctx.fillStyle = vignette;
   ctx.fillRect(0, 0, width, height);
+
+  drawTouchIndicator();
+}
+
+function drawTouchIndicator() {
+  const point = state.touchPoint;
+  if (!point || state.mode !== "playing") return;
+  const targetY = point.y - CONFIG.touchOffset;
+
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 252, 240, 0.85)";
+  ctx.fillStyle = "rgba(255, 252, 240, 0.12)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([4, 5]);
+  ctx.beginPath();
+  ctx.arc(point.x, point.y, 17, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.strokeStyle = "rgba(255, 252, 240, 0.4)";
+  ctx.beginPath();
+  ctx.moveTo(point.x, point.y - 19);
+  ctx.lineTo(point.x, targetY + 5);
+  ctx.stroke();
+
+  ctx.fillStyle = "rgba(255, 248, 221, 0.92)";
+  ctx.beginPath();
+  ctx.arc(point.x, targetY, 3.2, 0, TAU);
+  ctx.fill();
+  ctx.restore();
 }
 
 function frame(now) {
@@ -554,6 +631,12 @@ function frame(now) {
   const rawDt = (now - lastFrame) / 1000;
   lastFrame = now;
   if (state.paused) return;
+
+  if (state.hitStop > 0) {
+    state.hitStop = Math.max(0, state.hitStop - Math.min(rawDt, 0.05));
+    render();
+    return;
+  }
 
   const dt = clamp(rawDt, 0, 0.05);
   if (dt > 0) update(dt);
@@ -570,133 +653,12 @@ function requestStart() {
 function triggerDash() {
   if (state.mode !== "playing") return;
   if (cat.triggerDash()) {
-    syncDashUi();
+    syncDashUi(cat);
     audio.init();
   }
 }
 
-function pointerPosition(event) {
-  const rect = canvas.getBoundingClientRect();
-  return {
-    x: ((event.clientX - rect.left) / rect.width) * width,
-    y: ((event.clientY - rect.top) / rect.height) * height,
-  };
-}
-
-function handlePointerMove(event) {
-  if (state.mode !== "playing") return;
-  if (event.pointerType !== "mouse" && state.pointerId !== null && event.pointerId !== state.pointerId) {
-    return;
-  }
-  const point = pointerPosition(event);
-  cat.setTarget(point.x, point.y);
-}
-
-function handlePointerDown(event) {
-  audio.init();
-  if (state.mode !== "playing") return;
-  const point = pointerPosition(event);
-  cat.setTarget(point.x, point.y);
-  state.pointerId = event.pointerId;
-  try {
-    canvas.setPointerCapture(event.pointerId);
-  } catch {
-    // Pointer capture is a progressive enhancement.
-  }
-  if (event.pointerType === "mouse") triggerDash();
-}
-
-function handlePointerUp(event) {
-  if (state.pointerId !== event.pointerId) return;
-  state.pointerId = null;
-  try {
-    canvas.releasePointerCapture(event.pointerId);
-  } catch {
-    // Nothing to release.
-  }
-}
-
-const keyMap = {
-  ArrowUp: "up",
-  ArrowDown: "down",
-  ArrowLeft: "left",
-  ArrowRight: "right",
-  w: "up",
-  a: "left",
-  s: "down",
-  d: "right",
-};
-
-function handleKeyDown(event) {
-  const mapped = keyMap[event.key] ?? keyMap[event.key.toLowerCase?.()];
-  if (mapped) {
-    keys[mapped] = true;
-    if (state.mode === "playing") event.preventDefault();
-    return;
-  }
-
-  if (event.code === "Space") {
-    if (state.mode === "menu" || state.mode === "over") {
-      const overlayVisible =
-        state.mode === "menu"
-          ? !ui.menuOverlay.classList.contains("is-hidden")
-          : !ui.overOverlay.classList.contains("is-hidden");
-      if (overlayVisible) {
-        event.preventDefault();
-        requestStart();
-        return;
-      }
-    }
-    if (state.mode === "playing") {
-      event.preventDefault();
-      triggerDash();
-    }
-    return;
-  }
-
-  if (event.key === "Enter" && (state.mode === "menu" || state.mode === "over")) {
-    const overlayVisible =
-      state.mode === "menu"
-        ? !ui.menuOverlay.classList.contains("is-hidden")
-        : !ui.overOverlay.classList.contains("is-hidden");
-    if (overlayVisible) {
-      event.preventDefault();
-      requestStart();
-    }
-  }
-}
-
-function handleKeyUp(event) {
-  const mapped = keyMap[event.key] ?? keyMap[event.key.toLowerCase?.()];
-  if (mapped) keys[mapped] = false;
-}
-
-function clearKeys() {
-  keys.up = false;
-  keys.down = false;
-  keys.left = false;
-  keys.right = false;
-}
-
-function setupInput() {
-  canvas.addEventListener("pointermove", handlePointerMove);
-  canvas.addEventListener("pointerdown", handlePointerDown);
-  canvas.addEventListener("pointerup", handlePointerUp);
-  canvas.addEventListener("pointercancel", handlePointerUp);
-  canvas.addEventListener("contextmenu", (event) => event.preventDefault());
-
-  window.addEventListener("keydown", handleKeyDown, { passive: false });
-  window.addEventListener("keyup", handleKeyUp);
-  window.addEventListener("blur", clearKeys);
-  window.addEventListener("resize", resize);
-  window.addEventListener("orientationchange", () => window.setTimeout(resize, 180));
-
-  document.addEventListener("visibilitychange", () => {
-    state.paused = document.hidden;
-    if (document.hidden) clearKeys();
-    lastFrame = performance.now();
-  });
-
+function setupUi() {
   ui.startBtn.addEventListener("click", () => {
     audio.init();
     audio.ui();
@@ -710,32 +672,70 @@ function setupInput() {
 
   ui.soundBtn.addEventListener("click", () => {
     audio.toggle();
-    updateSoundButton();
+    updateSoundButton(audio);
   });
 
-  ui.dashBtn.addEventListener("pointerdown", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    audio.init();
-    triggerDash();
-  });
+  window.addEventListener("resize", resize);
+  window.addEventListener("orientationchange", () => window.setTimeout(resize, 180));
 
-  ui.dashBtn.addEventListener("keydown", (event) => {
-    if (event.code === "Space" || event.code === "Enter") {
-      event.preventDefault();
-      triggerDash();
-    }
+  document.addEventListener("visibilitychange", () => {
+    state.paused = document.hidden;
+    if (document.hidden) clearKeys();
+    lastFrame = performance.now();
   });
+}
+
+function setupDebug() {
+  if (!new URLSearchParams(window.location.search).has("debug")) return;
+  window.__nekoDebug = {
+    state,
+    fishList,
+    cat,
+    start: startGame,
+    end: endGame,
+    setScore(value) {
+      state.score = value;
+      syncHud(state, true);
+    },
+    spawnFish: addFish,
+    spawnAt(type, x, y) {
+      const fish = makeFish(type, false);
+      fish.x = x;
+      fish.y = y;
+      fish.spawnFade = 1;
+      fishList.push(fish);
+      return fish;
+    },
+    spawnKing,
+    pickFishType,
+    triggerFrenzy: startFrenzy,
+    banner: showBanner,
+  };
 }
 
 function init() {
   resize();
   seedMenuFish();
-  updateSoundButton();
+  updateSoundButton(audio);
   ui.bestValue.textContent = String(state.best);
   ui.menuBest.textContent = String(state.best);
-  syncHud(true);
-  setupInput();
+  resetHudCache();
+  syncHud(state, true);
+  setupUi();
+  setupInput({
+    canvas,
+    ui,
+    state,
+    cat,
+    audio,
+    triggerDash,
+    requestStart,
+    onTouchPoint(point) {
+      state.touchPoint = point;
+    },
+    getViewport: () => ({ width, height }),
+  });
+  setupDebug();
   requestAnimationFrame((now) => {
     lastFrame = now;
     frame(now);

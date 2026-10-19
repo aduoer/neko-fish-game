@@ -68,6 +68,12 @@
 
     <div class="hint" id="hint">移动小猫，碰到小鱼就能捞到！</div>
 
+    <div class="event-banner" id="eventBanner" role="status" aria-live="polite" aria-hidden="true">
+      <span class="event-kicker" id="eventKicker"></span>
+      <strong class="event-title" id="eventTitle"></strong>
+      <span class="event-detail" id="eventDetail"></span>
+    </div>
+
     <section class="overlay" id="menuOverlay" aria-labelledby="gameTitle">
       <div class="card menu-card">
         <div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -98,7 +104,7 @@
           </div>
           <div class="how-item">
             <span class="how-icon">⚡</span>
-            <div><b>冲刺加速</b><small>空格 / 右下角按钮</small></div>
+            <div><b>冲刺加速</b><small>空格 / 双击 / 长按</small></div>
           </div>
           <div class="how-item">
             <span class="how-icon">💗</span>
@@ -120,18 +126,25 @@
         <div class="eyebrow">TIME'S UP</div>
         <h2 id="overTitle">时间到啦！</h2>
         <p class="lead" id="rankLine">小猫今天也很努力呢。</p>
+        <div class="result-stars" id="resultStars" role="img" aria-label="3 颗星中点亮 0 颗">
+          <span aria-hidden="true">★</span>
+          <span aria-hidden="true">★</span>
+          <span aria-hidden="true">★</span>
+        </div>
+        <p class="result-hook" id="resultHook"></p>
         <div class="result-score">
           <span>本局得分</span>
           <strong id="finalScore">0</strong>
         </div>
         <div class="result-grid">
           <div><span>捞到小鱼</span><strong id="finalCaught">0</strong></div>
+          <div><span>金鱼</span><strong id="finalGold">0</strong></div>
           <div><span>最高连击</span><strong id="finalCombo">0</strong></div>
           <div><span>历史最佳</span><strong id="finalBest">0</strong></div>
         </div>
         <p class="new-best is-hidden" id="newBest">✦ 新纪录 ✦</p>
         <button class="primary-btn" id="replayBtn" type="button">
-          <span>再捞一篮</span>
+          <span id="replayLabel">差一点，再来一篮</span>
           <span class="btn-arrow" aria-hidden="true">→</span>
         </button>
       </div>

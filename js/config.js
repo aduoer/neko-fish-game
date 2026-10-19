@@ -8,9 +8,26 @@ export const CONFIG = Object.freeze({
   maxMultiplier: 5,
   initialFish: 8,
   maxFish: 13,
+  maxFishFrenzy: 19,
   catchRadius: 56,
   fleeRadius: 155,
   hintDuration: 4.2,
+  frenzyTimes: Object.freeze([15, 35]),
+  frenzyDuration: 6,
+  frenzyBurst: 7,
+  magnetCombo: 5,
+  magnetDuration: 4.5,
+  magnetRadius: 265,
+  magnetSpeed: 430,
+  bonusCombo: 10,
+  bonusDuration: 3,
+  starEyesDuration: 2.6,
+  hitStop: 0.03,
+  kingSpawnAt: 32,
+  starThresholds: Object.freeze([100, 300, 700]),
+  touchOffset: 62,
+  doubleTapWindow: 0.28,
+  longPressDelay: 0.42,
 });
 
 export const FISH_TYPES = Object.freeze({
@@ -56,12 +73,37 @@ export const FISH_TYPES = Object.freeze({
     fin: "rgba(255, 221, 104, 0.72)",
     weight: 12,
   },
+  king: {
+    label: "鱼王",
+    points: 20,
+    radius: 24,
+    minSpeed: 92,
+    maxSpeed: 126,
+    fleeSpeed: 236,
+    body: "#ffd35c",
+    belly: "#fff7ce",
+    accent: "#bd7814",
+    stripe: "#f1b52a",
+    fin: "rgba(255, 201, 74, 0.82)",
+    weight: 0,
+  },
 });
 
 export const SCORE_RANKS = [
   { min: 0, text: "小猫今天也很努力呢。" },
-  { min: 10, text: "手感不错，再来一篮？" },
-  { min: 25, text: "猫爪生风，小鱼们要小心啦！" },
-  { min: 45, text: "了不起！池塘里的鱼都认识你了。" },
-  { min: 70, text: "传说中的捞鱼猫，就是你！" },
+  { min: 80, text: "手感不错，再来一篮？" },
+  { min: 250, text: "猫爪生风，小鱼们要小心啦！" },
+  { min: 500, text: "了不起！池塘里的鱼都认识你了。" },
+  { min: 900, text: "传说中的捞鱼猫，就是你！" },
 ];
+
+export function comboMultiplier(combo) {
+  return Math.min(CONFIG.maxMultiplier, 1 + Math.floor(combo / 2));
+}
+
+export function starsForScore(score) {
+  return CONFIG.starThresholds.reduce(
+    (total, threshold) => total + (score >= threshold ? 1 : 0),
+    0,
+  );
+}

@@ -1,5 +1,5 @@
 import { CONFIG } from "./config.js";
-import { TAU, clamp, damp, rand } from "./utils.js";
+import { TAU, clamp, damp, drawStar, rand } from "./utils.js";
 
 export class Cat {
   constructor(scale = 1) {
@@ -24,6 +24,9 @@ export class Cat {
     this.lastDirY = 1;
     this.events = [];
     this.time = 0;
+    this.starEyes = 0;
+    this.trail = [];
+    this.trailTimer = 0;
   }
 
   get catchRadius() {
@@ -45,6 +48,9 @@ export class Cat {
     this.dashTime = 0;
     this.dashCooldown = 0;
     this.catchPop = 0;
+    this.starEyes = 0;
+    this.trail.length = 0;
+    this.trailTimer = 0;
     this.events.length = 0;
   }
 
@@ -59,6 +65,16 @@ export class Cat {
 
   triggerCatch() {
     this.catchPop = 0.42;
+  }
+
+  triggerStarEyes(duration = CONFIG.starEyesDuration) {
+    this.starEyes = Math.max(this.starEyes, duration);
+  }
+
+  finishRound() {
+    this.dashTime = 0;
+    this.starEyes = 0;
+    this.trail.length = 0;
   }
 
   triggerDash() {
@@ -78,6 +94,7 @@ export class Cat {
     this.dashTime = CONFIG.dashDuration;
     this.dashCooldown = CONFIG.dashCooldown;
     this.wakeTimer = 0;
+    this.trailTimer = 0;
     this.events.push({ type: "dash" });
     return true;
   }
@@ -87,6 +104,11 @@ export class Cat {
     const { bounds, keysX, keysY } = env;
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.catchPop = Math.max(0, this.catchPop - dt);
+    this.starEyes = Math.max(0, this.starEyes - dt);
+    for (let i = this.trail.length - 1; i >= 0; i -= 1) {
+      this.trail[i].life -= dt;
+      if (this.trail[i].life <= 0) this.trail.splice(i, 1);
+    }
     this.blinkTimer -= dt;
     if (this.blinkTimer <= 0) {
       this.blink = 0.13;
@@ -121,6 +143,11 @@ export class Cat {
           y: this.y,
           angle: Math.atan2(this.dashDirY, this.dashDirX),
         });
+      }
+      this.trailTimer -= dt;
+      if (this.trailTimer <= 0) {
+        this.trailTimer = 0.032;
+        this.trail.push({ x: this.x, y: this.y, life: 0.3, maxLife: 0.3 });
       }
     } else {
       const dx = this.targetX - this.x;
@@ -176,6 +203,8 @@ export class Cat {
     const bob = Math.sin(time * 2.5) * 2.2;
     const tilt = clamp(this.vx / (CONFIG.catSpeed * S), -1, 1) * 0.1;
 
+    this.drawTrail(ctx);
+
     ctx.save();
     ctx.translate(this.x, this.y);
 
@@ -193,6 +222,40 @@ export class Cat {
     if (this.isDashing) this.drawSpeedLines(ctx, moving);
 
     ctx.restore();
+  }
+
+  drawTrail(ctx) {
+    const S = this.scale;
+    for (const ghost of this.trail) {
+      const fade = clamp(ghost.life / ghost.maxLife, 0, 1);
+      ctx.save();
+      ctx.translate(ghost.x, ghost.y - 6 * S);
+      ctx.scale(S, S);
+      ctx.globalAlpha = fade * 0.22;
+      ctx.fillStyle = "#ffd29a";
+      ctx.beginPath();
+      ctx.moveTo(-28, -13);
+      ctx.quadraticCurveTo(-33, -39, -23, -43);
+      ctx.quadraticCurveTo(-13, -38, -7, -25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(28, -13);
+      ctx.quadraticCurveTo(33, -39, 23, -43);
+      ctx.quadraticCurveTo(13, -38, 7, -25);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.ellipse(0, -4, 32, 28, 0, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = fade * 0.15;
+      ctx.strokeStyle = "#eafff8";
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.arc(0, 0, 50, 0, TAU);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
 
   drawRipple(ctx, time, moving) {
@@ -451,6 +514,27 @@ export class Cat {
   }
 
   drawEyes(ctx, time, moving) {
+    if (this.starEyes > 0) {
+      const pulse = 0.86 + Math.sin(time * 9) * 0.14;
+      for (const side of [-1, 1]) {
+        ctx.save();
+        ctx.translate(side * 15, -2);
+        ctx.rotate(Math.sin(time * 3 + side) * 0.12);
+        ctx.fillStyle = "#ffcf3c";
+        drawStar(ctx, 0, 0, 9.6 * pulse, 4.5 * pulse, 5);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(154, 96, 8, 0.4)";
+        ctx.lineWidth = 1.1;
+        ctx.stroke();
+        ctx.fillStyle = "#fff8cf";
+        ctx.beginPath();
+        ctx.arc(-2.2, -2.6, 1.7, 0, TAU);
+        ctx.fill();
+        ctx.restore();
+      }
+      return;
+    }
+
     const happy = this.catchPop > 0.08;
     const blink = this.blink > 0;
     if (blink) {

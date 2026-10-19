@@ -383,3 +383,114 @@ button {
   opacity: 1;
   transform: translate(-50%, 0);
 }
+
+/* ---------- Event banner ---------- */
+
+.event-banner {
+  position: absolute;
+  z-index: 7;
+  top: clamp(124px, 17vh, 160px);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 168px;
+  max-width: min(82vw, 340px);
+  padding: 10px 22px 12px;
+  border-radius: 20px;
+  color: #fffdf4;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 220, 130, 0.22), transparent 68%),
+    rgba(15, 86, 92, 0.86);
+  border: 1.5px solid rgba(255, 244, 205, 0.42);
+  box-shadow:
+    0 5px 0 rgba(9, 62, 69, 0.22),
+    0 16px 34px rgba(7, 50, 57, 0.24);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -12px) scale(0.92);
+  pointer-events: none;
+}
+
+.event-banner.is-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  animation: bannerIn 0.36s cubic-bezier(0.2, 0.92, 0.32, 1.18) both;
+}
+
+.event-banner[data-tone="frenzy"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 236, 160, 0.35), transparent 70%),
+    linear-gradient(145deg, rgba(255, 137, 94, 0.94), rgba(214, 71, 103, 0.94));
+  border-color: rgba(255, 245, 209, 0.66);
+}
+
+.event-banner[data-tone="magnet"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(182, 255, 244, 0.3), transparent 70%),
+    linear-gradient(145deg, rgba(25, 139, 145, 0.94), rgba(13, 96, 110, 0.94));
+}
+
+.event-banner[data-tone="bonus"] {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 224, 240, 0.4), transparent 70%),
+    linear-gradient(145deg, rgba(240, 111, 142, 0.95), rgba(206, 72, 118, 0.95));
+  border-color: rgba(255, 235, 243, 0.7);
+}
+
+.event-banner[data-tone="king"] {
+  color: #6c4210;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 230, 0.68), transparent 68%),
+    linear-gradient(145deg, #ffe17c, #ffbe45);
+  border-color: rgba(255, 253, 230, 0.86);
+  box-shadow:
+    0 5px 0 rgba(173, 113, 13, 0.26),
+    0 16px 38px rgba(118, 77, 8, 0.28);
+}
+
+.event-kicker {
+  font-size: 8.5px;
+  font-weight: 900;
+  letter-spacing: 0.24em;
+  opacity: 0.78;
+}
+
+.event-title {
+  font-size: clamp(18px, 3.6vw, 23px);
+  font-weight: 900;
+  line-height: 1.18;
+  letter-spacing: 0.02em;
+}
+
+.event-detail {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.88;
+}
+
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -14px) scale(0.88);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+@media (max-width: 560px) {
+  .event-banner {
+    top: clamp(112px, 15vh, 132px);
+    padding: 8px 18px 10px;
+    border-radius: 17px;
+  }
+
+  .event-detail {
+    font-size: 10px;
+  }
+}

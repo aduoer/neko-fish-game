@@ -137,6 +137,26 @@ export class Particles {
     }
   }
 
+  heartRain(width) {
+    const colors = ["#ff8fa8", "#ffb3c6", "#ffd9e2", "#ff7f96"];
+    for (let i = 0; i < 26; i += 1) {
+      this.add({
+        kind: "heart",
+        x: rand(0, width),
+        y: rand(-36, 8),
+        vx: rand(-24, 24),
+        vy: rand(65, 125),
+        gravity: 14,
+        drag: 0.996,
+        size: rand(10, 18),
+        rotation: rand(-0.5, 0.5),
+        spin: rand(-0.9, 0.9),
+        life: rand(1.7, 2.8),
+        color: pick(colors),
+      });
+    }
+  }
+
   dashWake(x, y, angle) {
     const offsetX = Math.cos(angle) * -20;
     const offsetY = Math.sin(angle) * -20;

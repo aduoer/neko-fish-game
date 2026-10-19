@@ -18,16 +18,58 @@ export class Fish {
     this.turnTimer = rand(1.4, 3.2);
     this.depth = rand(0.86, 1.08);
     this.caught = false;
+    this.catchTimer = 0;
+    this.catchDuration = 0.16;
+    this.catchTargetX = x;
+    this.catchTargetY = y;
     this.spawnFade = 0;
   }
 
   get isGold() {
-    return this.type === "gold";
+    return this.type === "gold" || this.type === "king";
+  }
+
+  get isKing() {
+    return this.type === "king";
+  }
+
+  startCatch(target) {
+    this.caught = true;
+    this.catchTimer = this.catchDuration;
+    this.catchTargetX = target.x;
+    this.catchTargetY = target.y;
+    this.speed = 0;
+  }
+
+  attract(dt, cat, radius, strength) {
+    if (this.caught) return;
+    const dx = cat.x - this.x;
+    const dy = cat.y - this.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > radius || distance < 0.001) return;
+    const pull = strength * (0.35 + (1 - distance / radius) * 0.65);
+    this.x += (dx / distance) * pull * dt;
+    this.y += (dy / distance) * pull * dt;
+    this.angle = rotateTowards(this.angle, Math.atan2(dy, dx), 4.5 * dt);
   }
 
   update(dt, env) {
     this.age += dt;
     this.spawnFade = Math.min(1, this.spawnFade + dt * 2.4);
+
+    if (this.caught) {
+      const ease = 1 - Math.exp(-19 * dt);
+      const dx = this.catchTargetX - this.x;
+      const dy = this.catchTargetY - this.y;
+      this.x += dx * ease;
+      this.y += dy * ease;
+      if (Math.abs(dx) + Math.abs(dy) > 1) {
+        this.angle = rotateTowards(this.angle, Math.atan2(dy, dx), 12 * dt);
+      }
+      this.catchTimer = Math.max(0, this.catchTimer - dt);
+      return;
+    }
+
     const { cat, bounds, speedFactor } = env;
 
     this.turnTimer -= dt;
@@ -45,8 +87,11 @@ export class Fish {
 
     if (distance < fleeRadius && distance > 0.001) {
       const away = Math.atan2(dy, dx);
-      const sideStep = Math.sin(this.phase) > 0 ? 0.32 : -0.32;
-      this.angle = rotateTowards(this.angle, away + sideStep, 5.2 * dt);
+      const sideStep = this.isGold
+        ? Math.sin(this.age * 6.4 + this.phase) * 0.92
+        : Math.sin(this.phase) > 0 ? 0.32 : -0.32;
+      const turnSpeed = this.isGold ? 7.2 : 5.2;
+      this.angle = rotateTowards(this.angle, away + sideStep, turnSpeed * dt);
       this.speed = lerp(
         this.speed,
         this.spec.fleeSpeed * speedFactor,
@@ -91,24 +136,61 @@ export class Fish {
 
   draw(ctx, time) {
     const r = this.radius;
-    const bob = Math.sin(time * 1.9 + this.phase) * 1.1 * this.scale;
+    const pop = this.caught ? clamp(this.catchTimer / this.catchDuration, 0, 1) : 1;
+    const bob = Math.sin(time * 1.9 + this.phase) * 1.1 * this.scale * pop;
     ctx.save();
-    ctx.globalAlpha = this.spawnFade;
+    ctx.globalAlpha = this.spawnFade * (0.15 + pop * 0.85);
     ctx.translate(this.x, this.y + bob);
 
     ctx.save();
-    ctx.globalAlpha = 0.12 * this.spawnFade;
+    ctx.globalAlpha = 0.12 * this.spawnFade * pop;
     ctx.fillStyle = "#064d5b";
     ctx.beginPath();
     ctx.ellipse(5, 8, r * 1.35, r * 0.62, this.angle, 0, TAU);
     ctx.fill();
     ctx.restore();
 
-    this.drawAura(ctx, time, r);
+    if (!this.caught) this.drawAura(ctx, time, r);
 
+    ctx.save();
     ctx.rotate(this.angle);
-    ctx.scale(this.depth, this.depth);
+    const bodyScale = this.depth * (0.25 + pop * 0.75);
+    ctx.scale(bodyScale, bodyScale);
     this.drawFish(ctx, time, r);
+    ctx.restore();
+
+    if (this.isKing && !this.caught) this.drawCrown(ctx, time, r);
+    ctx.restore();
+  }
+
+  drawCrown(ctx, time, r) {
+    const bob = Math.sin(time * 2.6 + this.phase) * 1.8;
+    ctx.save();
+    ctx.translate(0, -r * 1.12 + bob);
+    ctx.rotate(Math.sin(time * 1.7 + this.phase) * 0.07);
+    ctx.fillStyle = "#fff4c8";
+    ctx.strokeStyle = "rgba(151, 95, 16, 0.55)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.48, r * 0.12);
+    ctx.lineTo(-r * 0.56, -r * 0.34);
+    ctx.lineTo(-r * 0.2, -r * 0.08);
+    ctx.lineTo(0, -r * 0.52);
+    ctx.lineTo(r * 0.2, -r * 0.08);
+    ctx.lineTo(r * 0.56, -r * 0.34);
+    ctx.lineTo(r * 0.48, r * 0.12);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#ff8ba0";
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.05, r * 0.07, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#78d8dc";
+    ctx.beginPath();
+    ctx.arc(-r * 0.36, r * 0.01, r * 0.05, 0, TAU);
+    ctx.arc(r * 0.36, r * 0.01, r * 0.05, 0, TAU);
+    ctx.fill();
     ctx.restore();
   }
 
@@ -117,15 +199,22 @@ export class Fish {
       const pulse = 0.5 + Math.sin(time * 3 + this.phase) * 0.5;
       ctx.save();
       ctx.globalAlpha = 0.18 + pulse * 0.16;
-      ctx.strokeStyle = "#ffe78a";
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = this.isKing ? "#fff2a8" : "#ffe78a";
+      ctx.lineWidth = this.isKing ? 2.2 : 1.5;
       ctx.setLineDash([3, 5]);
       ctx.beginPath();
-      ctx.arc(0, 0, r * 1.85, 0, TAU);
+      ctx.arc(0, 0, r * (this.isKing ? 2 : 1.85), 0, TAU);
       ctx.stroke();
+      if (this.isKing) {
+        ctx.globalAlpha = 0.12 + pulse * 0.12;
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 2.3, 0, TAU);
+        ctx.stroke();
+      }
       ctx.restore();
 
-      for (let i = 0; i < 3; i += 1) {
+      const starCount = this.isKing ? 5 : 3;
+      for (let i = 0; i < starCount; i += 1) {
         const angle = time * 0.8 + i * 2.1 + this.phase;
         const radius = r * (1.9 + Math.sin(time * 2.4 + i) * 0.28);
         ctx.save();
@@ -213,7 +302,7 @@ export class Fish {
       ctx.beginPath();
       ctx.ellipse(-r * 0.6, -r * 0.18, r * 0.22, r * 0.15, -0.4, 0, TAU);
       ctx.fill();
-    } else if (this.type === "gold") {
+    } else if (this.isGold) {
       ctx.globalAlpha = 0.42;
       ctx.lineWidth = r * 0.13;
       for (let i = 0; i < 4; i += 1) {

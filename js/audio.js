@@ -81,7 +81,7 @@ export class AudioKit {
     if (!this.ready) return;
     try {
       if (!this.noiseBuffer) {
-        const length = Math.floor(this.ctx.sampleRate * 0.5);
+        const length = Math.floor(this.ctx.sampleRate * 1.2);
         this.noiseBuffer = this.ctx.createBuffer(1, length, this.ctx.sampleRate);
         const data = this.noiseBuffer.getChannelData(0);
         for (let i = 0; i < length; i += 1) data[i] = Math.random() * 2 - 1;
@@ -133,6 +133,59 @@ export class AudioKit {
   dash() {
     this.noise({ duration: 0.22, volume: 0.15, from: 1200, to: 260 });
     this.note({ freq: 260, endFreq: 520, duration: 0.16, volume: 0.08, type: "sine" });
+  }
+
+  milestone(level = 1) {
+    const notes = level >= 2 ? [784, 1046, 1318, 1568] : [698, 880, 1046];
+    notes.forEach((freq, index) => {
+      this.note({
+        freq,
+        duration: 0.24,
+        volume: 0.12,
+        type: "triangle",
+        delay: index * 0.07,
+      });
+    });
+    this.note({ freq: 2093, duration: 0.3, volume: 0.07, type: "sine", delay: 0.22 });
+  }
+
+  frenzy() {
+    this.noise({ duration: 0.7, volume: 0.12, from: 400, to: 1600 });
+    [392, 523, 659, 784].forEach((freq, index) => {
+      this.note({
+        freq,
+        endFreq: freq * 1.12,
+        duration: 0.3,
+        volume: 0.11,
+        type: "triangle",
+        delay: index * 0.09,
+      });
+    });
+  }
+
+  kingSpawn() {
+    [262, 330, 392, 523].forEach((freq, index) => {
+      this.note({
+        freq,
+        duration: 0.32,
+        volume: 0.13,
+        type: "sawtooth",
+        delay: index * 0.11,
+      });
+    });
+  }
+
+  kingCaught() {
+    [523, 659, 784, 1046, 1318].forEach((freq, index) => {
+      this.note({
+        freq,
+        duration: 0.3,
+        volume: 0.13,
+        type: "triangle",
+        delay: index * 0.08,
+      });
+    });
+    this.noise({ duration: 0.35, volume: 0.08, from: 1800, to: 500 });
   }
 
   gameOver() {
