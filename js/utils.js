@@ -6,11 +6,23 @@ export const lerp = (a, b, t) => a + (b - a) * t;
 
 export const damp = (a, b, lambda, dt) => lerp(a, b, 1 - Math.exp(-lambda * dt));
 
-export const rand = (min, max) => min + Math.random() * (max - min);
+export const rand = (min, max, random = Math.random) => min + random() * (max - min);
+
+export const mulberry32 = (seed) => {
+  let state = seed >>> 0;
+  return () => {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+};
 
 export const randInt = (min, max) => Math.floor(rand(min, max + 1));
 
-export const pick = (items) => items[Math.floor(Math.random() * items.length)];
+export const pick = (items, random = Math.random) =>
+  items[Math.floor(random() * items.length)];
 
 export const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 
@@ -35,10 +47,10 @@ export const rotateTowards = (current, target, maxDelta) => {
 
 export const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
 
-export const weightedPick = (entries) => {
+export const weightedPick = (entries, random = Math.random) => {
   const total = entries.reduce((sum, entry) => sum + entry.weight, 0);
   if (total <= 0) return entries[0]?.value;
-  let roll = Math.random() * total;
+  let roll = random() * total;
   for (const entry of entries) {
     roll -= entry.weight;
     if (roll <= 0) return entry.value;

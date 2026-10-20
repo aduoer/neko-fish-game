@@ -1,22 +1,32 @@
 import { CONFIG, FISH_TYPES, comboMultiplier } from "./config.js";
-import {
-  clamp,
-  distSq,
-  pick,
-  rand,
-  readNumber,
-  weightedPick,
-  writeValue,
-  TAU,
-} from "./utils.js";
+import { clamp, distSq, pick, rand, TAU } from "./utils.js";
 import { AudioKit } from "./audio.js";
 import { PondBackground } from "./background.js";
 import { Particles } from "./particles.js";
-import { Fish } from "./fish.js";
 import { Cat } from "./cat.js";
 import { clearKeys, keyDirection, setupInput } from "./input.js";
+import { getPondSkin, getRingSkin } from "./cosmetics.js";
+import { FishSpawner } from "./spawner.js";
+import { PondEvents, linkEventState } from "./events.js";
+import { PawNet } from "./net.js";
 import {
-  ui,
+  addCoins,
+  bestFor,
+  claimDaily,
+  getCoins,
+  getProfile,
+  updateBest,
+} from "./progress.js";
+import { createDailyRandom, dateKey, evaluateGoals, goalValue } from "./daily.js";
+import { Shop } from "./shop.js";
+import { ShareOverlay } from "./share-card.js";
+import { createModeUi } from "./mode-ui.js";
+import { buildShareSnapshot } from "./result.js";
+import { installDebug } from "./debug.js";
+import { createControls } from "./game-controls.js";
+import { setupUiEvents } from "./ui-events.js";
+import { drawTouchIndicator } from "./touch-indicator.js";
+import {
   fillResults,
   hideBanner,
   popScore,
@@ -24,13 +34,22 @@ import {
   showBanner,
   syncDashUi,
   syncHud,
+  syncNetUi,
+  syncWallet,
+  ui,
   updateSoundButton,
 } from "./ui.js";
 
-const BEST_KEY = "neko-fish-best";
-
 const canvas = document.getElementById("pond");
 const ctx = canvas.getContext("2d", { alpha: false });
+
+let width = 0;
+let height = 0;
+let dpr = 1;
+let scale = 1;
+let endOverlayTimer = 0;
+let lastFrame = performance.now();
+let lastResult = null;
 
 const audio = new AudioKit();
 const background = new PondBackground();
@@ -39,8 +58,9 @@ const cat = new Cat(1);
 
 const state = {
   mode: "menu",
+  modeKey: "classic",
   score: 0,
-  best: readNumber(BEST_KEY, 0),
+  best: bestFor("classic"),
   caught: 0,
   goldCaught: 0,
   combo: 0,
@@ -54,25 +74,62 @@ const state = {
   hintTimer: 0,
   paused: false,
   pointerId: null,
-  frenzyIndex: 0,
-  frenzyActive: false,
-  frenzyTimer: 0,
   bonusTimer: 0,
   magnetTimer: 0,
   hitStop: 0,
-  kingSpawned: false,
   touchPoint: null,
+  runCoins: 0,
+  random: Math.random,
+  daily: null,
+  endlessLimit: CONFIG.endlessStart,
+  endlessTime: 0,
+  lowWarned: false,
+  modalOpen: false,
+  runId: 0,
 };
 
-let width = 0;
-let height = 0;
-let dpr = 1;
-let scale = 1;
-let vignette = null;
-let endOverlayTimer = 0;
-let lastFrame = performance.now();
+const modeUi = createModeUi({ state, ui });
+const refreshModeUi = modeUi.refreshModeUi;
 
-const fishList = [];
+const spawner = new FishSpawner({
+  cat,
+  getBounds,
+  getElapsed: () => state.elapsed,
+  getFrenzy: () => events.frenzyActive,
+});
+const fishList = spawner.fishList;
+
+const events = new PondEvents({
+  audio,
+  addFish: (type) => spawner.addFish(type, true),
+  spawnKingFish,
+  showBanner,
+});
+
+// Keep the original debug/state surface in sync with the extracted event timer.
+linkEventState(state, events);
+
+const net = new PawNet({
+  getCat: () => cat,
+  getScale: () => scale,
+  onCast: castNet,
+  audio,
+});
+
+const controls = createControls({ state, ui, cat, audio, net, startGame });
+const { beginNet, cancelNet, onModalChange, releaseNet, requestStart, triggerDash } = controls;
+
+const shop = new Shop({
+  ui,
+  audio,
+  onChange: () => {
+    applyCosmetics();
+    refreshModeUi();
+  },
+  onModalChange,
+});
+
+const shareOverlay = new ShareOverlay({ ui, audio, onModalChange });
 
 function getBounds() {
   return {
@@ -81,6 +138,13 @@ function getBounds() {
     top: width < 600 ? 88 : 102,
     bottom: height - (width < 600 ? 88 : 44),
   };
+}
+
+function applyCosmetics() {
+  const profile = getProfile();
+  cat.setRingStyle(getRingSkin(profile.ring));
+  background.setTheme(getPondSkin(profile.pond).theme);
+  syncWallet(profile.coins);
 }
 
 function resize() {
@@ -98,8 +162,8 @@ function resize() {
 
   scale = clamp(Math.min(width, height) / 760, 0.86, 1.26);
   cat.setScale(scale);
+  spawner.setScale(scale);
   background.resize(width, height);
-  vignette = null;
 
   const bounds = getBounds();
   if (previousWidth > 0 && previousHeight > 0) {
@@ -109,17 +173,16 @@ function resize() {
     cat.y *= ratioY;
     cat.targetX *= ratioX;
     cat.targetY *= ratioY;
-    for (const fish of fishList) {
-      fish.x = clamp(fish.x * ratioX, bounds.left + fish.radius, bounds.right - fish.radius);
-      fish.y = clamp(fish.y * ratioY, bounds.top + fish.radius, bounds.bottom - fish.radius);
-      fish.scale = scale;
-      fish.radius = fish.spec.radius * scale;
-    }
+    spawner.resizeFish(ratioX, ratioY, bounds);
   }
 
   const margin = 72 * scale;
   if (state.mode === "menu") {
-    cat.place(width * 0.5, clamp(bounds.bottom - 100 * scale, bounds.top + margin, bounds.bottom - margin), scale);
+    cat.place(
+      width * 0.5,
+      clamp(bounds.bottom - 100 * scale, bounds.top + margin, bounds.bottom - margin),
+      scale,
+    );
   } else {
     cat.x = clamp(cat.x, bounds.left + margin, bounds.right - margin);
     cat.y = clamp(cat.y, bounds.top + margin, bounds.bottom - margin);
@@ -128,161 +191,105 @@ function resize() {
   }
 }
 
-function makeFish(type, awayFromCat = true) {
+function spawnKingFish() {
   const bounds = getBounds();
-  const spec = FISH_TYPES[type];
-  const radius = spec.radius * scale;
-  let x = width / 2;
-  let y = height / 2;
-  let angle = 0;
-
-  for (let attempt = 0; attempt < 12; attempt += 1) {
-    const side = weightedPick([
-      { value: "left", weight: 0.38 },
-      { value: "right", weight: 0.38 },
-      { value: "top", weight: 0.12 },
-      { value: "bottom", weight: 0.12 },
-    ]);
-
-    if (side === "left") {
-      x = bounds.left + radius + 2;
-      y = rand(bounds.top + radius, bounds.bottom - radius);
-      angle = rand(-0.55, 0.55);
-    } else if (side === "right") {
-      x = bounds.right - radius - 2;
-      y = rand(bounds.top + radius, bounds.bottom - radius);
-      angle = Math.PI + rand(-0.55, 0.55);
-    } else if (side === "top") {
-      x = rand(bounds.left + radius, bounds.right - radius);
-      y = bounds.top + radius + 2;
-      angle = Math.PI / 2 + rand(-0.55, 0.55);
-    } else {
-      x = rand(bounds.left + radius, bounds.right - radius);
-      y = bounds.bottom - radius - 2;
-      angle = -Math.PI / 2 + rand(-0.55, 0.55);
-    }
-
-    if (!awayFromCat || distSq(x, y, cat.x, cat.y) > (230 * scale) ** 2) break;
-  }
-
-  return new Fish(type, x, y, angle, scale);
-}
-
-function pickFishType() {
-  const pressure = clamp(state.elapsed / CONFIG.duration, 0, 1);
-  return weightedPick([
-    { value: "sardine", weight: 62 - pressure * 30 },
-    { value: "koi", weight: 28 + pressure * 14 },
-    { value: "gold", weight: 10 + pressure * 16 },
-  ]);
-}
-
-function maxFishNow() {
-  return state.frenzyActive ? CONFIG.maxFishFrenzy : CONFIG.maxFish;
-}
-
-function addFish(type = null, awayFromCat = true) {
-  if (fishList.length >= maxFishNow()) return;
-  fishList.push(makeFish(type ?? pickFishType(), awayFromCat));
-}
-
-function seedMenuFish() {
-  fishList.length = 0;
-  const menuTypes = ["sardine", "koi", "sardine", "gold", "koi", "sardine", "koi", "sardine"];
-  for (const type of menuTypes) addFish(type, false);
-}
-
-function spawnInitialFish() {
-  fishList.length = 0;
-  const openingTypes = ["sardine", "koi", "sardine", "gold", "sardine", "koi", "sardine", "sardine"];
-  for (const type of openingTypes) addFish(type, true);
-}
-
-function startFrenzy() {
-  state.frenzyActive = true;
-  state.frenzyTimer = CONFIG.frenzyDuration;
-  state.spawnTimer = 0;
-  for (let i = 0; i < CONFIG.frenzyBurst; i += 1) addFish(i === 0 ? "gold" : null);
-  showBanner({
-    kicker: "FISH TIDE",
-    title: "鱼潮来了！",
-    detail: "6 秒双倍积分，小鱼成群",
-    tone: "frenzy",
-    duration: 2800,
-  });
-  audio.frenzy();
-}
-
-function spawnKing() {
-  if (state.kingSpawned) return;
-  state.kingSpawned = true;
-  const bounds = getBounds();
-  const king = makeFish("king", false);
-  king.x = rand(width * 0.28, width * 0.72);
-  king.y = rand(bounds.top + 95 * scale, height * 0.55);
-  king.angle = rand(0, TAU);
+  const king = spawner.makeFish("king", false);
+  king.x = rand(width * 0.28, width * 0.72, state.random);
+  king.y = rand(bounds.top + 95 * scale, height * 0.55, state.random);
+  king.angle = rand(0, TAU, state.random);
   king.spawnFade = 0.7;
   fishList.push(king);
-  showBanner({
-    kicker: "RARE CATCH",
-    title: "鱼王出现！",
-    detail: "抓住它，+20 分",
-    tone: "king",
-    duration: 3200,
-  });
-  audio.kingSpawn();
+  return king;
 }
 
-function updateEvents(dt) {
-  while (
-    state.frenzyIndex < CONFIG.frenzyTimes.length &&
-    state.elapsed >= CONFIG.frenzyTimes[state.frenzyIndex]
-  ) {
-    state.frenzyIndex += 1;
-    startFrenzy();
-  }
+function showMenu() {
+  window.clearTimeout(endOverlayTimer);
+  state.mode = "menu";
+  state.paused = false;
+  state.daily = null;
+  state.touchPoint = null;
+  state.modalOpen = false;
+  cat.finishRound();
+  net.cancel();
+  events.reset(state.modeKey);
+  spawner.setRandom(Math.random);
+  spawner.seedMenuFish();
+  particles.clear();
+  hideBanner();
 
-  if (!state.kingSpawned && state.elapsed >= CONFIG.kingSpawnAt) spawnKing();
+  ui.menuOverlay.classList.remove("is-hidden");
+  ui.menuOverlay.setAttribute("aria-hidden", "false");
+  ui.menuOverlay.inert = false;
+  ui.overOverlay.classList.add("is-hidden");
+  ui.overOverlay.setAttribute("aria-hidden", "true");
+  ui.overOverlay.inert = false;
+  ui.hud.classList.remove("is-visible");
+  ui.hud.setAttribute("aria-hidden", "true");
+  ui.dashBtn.classList.remove("is-visible");
+  ui.netBtn.classList.remove("is-visible");
+  ui.hint.classList.remove("is-visible");
+  ui.comboTag.classList.remove("is-visible");
+  ui.timerPill.classList.remove("is-low");
+  ui.dailyPill.classList.add("is-hidden");
 
-  if (state.frenzyActive) {
-    state.frenzyTimer = Math.max(0, state.frenzyTimer - dt);
-    if (state.frenzyTimer <= 0) state.frenzyActive = false;
-  }
-  state.bonusTimer = Math.max(0, state.bonusTimer - dt);
-  state.magnetTimer = Math.max(0, state.magnetTimer - dt);
+  modeUi.dropStaleDaily();
+  applyCosmetics();
+  refreshModeUi();
+  resetHudCache();
+
+  const bounds = getBounds();
+  const margin = 72 * scale;
+  cat.place(
+    width * 0.5,
+    clamp(bounds.bottom - 100 * scale, bounds.top + margin, bounds.bottom - margin),
+    scale,
+  );
+  window.setTimeout(() => ui.startBtn.focus({ preventScroll: true }), 80);
 }
 
 function startGame() {
-  if (state.mode === "playing") return;
+  if (state.mode === "playing" || state.modalOpen) return;
   window.clearTimeout(endOverlayTimer);
   audio.init();
+  lastResult = null;
 
   state.mode = "playing";
+  state.runId += 1;
   state.score = 0;
   state.caught = 0;
   state.goldCaught = 0;
   state.combo = 0;
   state.comboTimer = 0;
   state.bestCombo = 0;
-  state.timeLeft = CONFIG.duration;
+  state.timeLeft = state.modeKey === "endless" ? CONFIG.endlessStart : CONFIG.duration;
   state.elapsed = 0;
   state.spawnTimer = 0.35;
   state.bubbleTimer = 1;
   state.shake = 0;
   state.paused = false;
-  state.frenzyIndex = 0;
-  state.frenzyActive = false;
-  state.frenzyTimer = 0;
   state.bonusTimer = 0;
   state.magnetTimer = 0;
   state.hitStop = 0;
-  state.kingSpawned = false;
   state.touchPoint = null;
   state.pointerId = null;
+  state.runCoins = 0;
+  state.endlessLimit = CONFIG.endlessStart;
+  state.endlessTime = 0;
+  state.lowWarned = false;
+  state.best = bestFor(state.modeKey);
+  state.daily = state.modeKey === "daily" ? modeUi.makeDailyState() : null;
+  state.random =
+    state.modeKey === "daily" && state.daily
+      ? createDailyRandom(state.daily.challenge.seed)
+      : Math.random;
 
+  spawner.setRandom(state.random);
+  events.reset(state.modeKey);
+  net.reset();
   particles.clear();
   hideBanner();
   resetHudCache();
+  applyCosmetics();
 
   const bounds = getBounds();
   cat.place(
@@ -290,7 +297,7 @@ function startGame() {
     clamp(bounds.bottom - 90 * scale, bounds.top + 100 * scale, bounds.bottom - 80 * scale),
     scale,
   );
-  spawnInitialFish();
+  spawner.spawnInitialFish();
   clearKeys();
   particles.splash(cat.x, cat.y + 16);
 
@@ -301,84 +308,163 @@ function startGame() {
   ui.hud.classList.add("is-visible");
   ui.hud.setAttribute("aria-hidden", "false");
   ui.dashBtn.classList.add("is-visible");
+  ui.netBtn.classList.add("is-visible");
   ui.hint.classList.add("is-visible");
   const touchPrimary = window.matchMedia("(pointer: coarse)").matches;
   ui.hint.textContent = touchPrimary
-    ? "按住屏幕带着小猫走；双击或长按可以冲刺！"
-    : "移动小猫碰小鱼；点击或按空格可以冲刺！";
-  state.hintTimer = CONFIG.hintDuration + 1;
+    ? "拖动带小猫走；按住左下角撒网，松手范围捕鱼！"
+    : "碰到小鱼就能捞；空格冲刺，按住 E / 右键蓄力撒网！";
+  state.hintTimer = CONFIG.hintDuration + 1.4;
   ui.comboTag.classList.remove("is-visible");
   ui.timerPill.classList.remove("is-low");
+  ui.dailyPill.classList.add("is-hidden");
 
   syncHud(state, true);
-  updateSoundButton(audio);
   syncDashUi(cat, true);
-  ui.liveRegion.textContent = "游戏开始，移动小猫去捞鱼吧。";
+  syncNetUi(net, true);
+  updateSoundButton(audio);
+  ui.liveRegion.textContent =
+    state.modeKey === "endless"
+      ? "无尽模式开始，捞鱼回满耐心。"
+      : state.modeKey === "daily"
+        ? "每日挑战开始，完成三个目标赢金币。"
+        : "游戏开始，移动小猫去捞鱼吧。";
   audio.start();
 }
 
-function endGame() {
+async function endGame(reason = "time") {
   if (state.mode !== "playing") return;
+  const run = {
+    runId: state.runId,
+    modeKey: state.modeKey,
+    score: state.score,
+    caught: state.caught,
+    goldCaught: state.goldCaught,
+    bestCombo: state.bestCombo,
+    runCoins: state.runCoins,
+    endlessTime: state.endlessTime,
+    endlessLimit: state.endlessLimit,
+    dailyChallenge: state.daily?.challenge ?? null,
+  };
+
   state.mode = "over";
+  state.lastEndReason = reason;
   state.timeLeft = Math.max(0, state.timeLeft);
   state.combo = 0;
   state.comboTimer = 0;
   state.hintTimer = 0;
   state.bonusTimer = 0;
   state.magnetTimer = 0;
-  state.frenzyActive = false;
   state.hitStop = 0;
   state.touchPoint = null;
   cat.finishRound();
+  net.cancel();
+  events.frenzyActive = false;
   ui.hint.classList.remove("is-visible");
   ui.dashBtn.classList.remove("is-visible");
+  ui.netBtn.classList.remove("is-visible");
   ui.comboTag.classList.remove("is-visible");
   hideBanner();
-  syncHud(state, true);
+  syncNetUi(net, true);
 
-  const previousBest = state.best;
-  const isNewBest = state.score > previousBest;
-  if (isNewBest) {
-    state.best = state.score;
-    writeValue(BEST_KEY, state.best);
+  const dailyExpired =
+    run.modeKey === "daily" &&
+    Boolean(run.dailyChallenge) &&
+    run.dailyChallenge.key !== dateKey();
+  const isNewBest = dailyExpired ? false : await updateBest(run.modeKey, run.score);
+  await addCoins(run.runCoins);
+
+  let dailyInfo = null;
+  if (run.modeKey === "daily" && run.dailyChallenge) {
+    const challenge = run.dailyChallenge;
+    const values = challenge.goals.map((goal) => goalValue(goal, run));
+    const completed = evaluateGoals(challenge, run);
+    const claim = await claimDaily(completed, challenge.key);
+    dailyInfo = { challenge, values, completed, claim };
   }
-  ui.bestValue.textContent = String(state.best);
-  ui.menuBest.textContent = String(state.best);
 
-  const stars = fillResults(state, isNewBest);
-  ui.overTitle.textContent = isNewBest ? "新纪录，喵！" : "时间到啦！";
-  ui.liveRegion.textContent = `游戏结束，本局得分 ${state.score} 分，捞到 ${state.caught} 条小鱼，点亮 ${stars} 颗星。`;
+  const wallet = getCoins();
+  state.best = bestFor(state.modeKey);
+
+  // A fast replay or a menu exit may have started a newer session while the
+  // profile transaction was queued behind another tab.
+  if (state.mode !== "over" || state.runId !== run.runId) return;
+
+  ui.bestValue.textContent = String(state.best);
+  syncHud(state, true);
+  if (state.daily && dailyInfo) {
+    state.daily.values = dailyInfo.values;
+    state.daily.completed = dailyInfo.completed;
+  }
+
+  const coinsEarned = run.runCoins + (dailyInfo?.claim.coinsEarned ?? 0);
+  syncWallet(wallet);
+  const info = {
+    modeKey: run.modeKey,
+    reason,
+    endlessTime: run.endlessTime,
+    endlessLimit: run.endlessLimit,
+    coinsEarned,
+    wallet,
+    daily: dailyInfo,
+  };
+  const stars = fillResults(state, isNewBest, info);
+  lastResult = buildShareSnapshot(state, stars, coinsEarned, isNewBest, dailyInfo);
+  shareOverlay.setSnapshot(lastResult);
+  ui.liveRegion.textContent = `游戏结束，本局得分 ${run.score} 分，捞到 ${run.caught} 条小鱼，获得 ${coinsEarned} 金币。`;
   audio.gameOver();
 
   endOverlayTimer = window.setTimeout(() => {
     if (state.mode !== "over") return;
     ui.overOverlay.classList.remove("is-hidden");
     ui.overOverlay.setAttribute("aria-hidden", "false");
+    ui.overOverlay.inert = false;
     ui.replayBtn.focus({ preventScroll: true });
     particles.confetti(width);
     if (stars === 3) particles.heartRain(width);
     if (isNewBest) audio.newBest();
+    if (dailyInfo?.claim.coinsEarned > 0) {
+      window.setTimeout(() => audio.dailyComplete(), 700);
+    }
   }, 620);
 }
 
-function catchFish(fish) {
+function catchFish(fish, options = {}) {
+  const silent = Boolean(options.silent);
   state.combo += 1;
   state.comboTimer = CONFIG.comboWindow;
   state.bestCombo = Math.max(state.bestCombo, state.combo);
-  const boost = (state.frenzyActive ? 2 : 1) * (state.bonusTimer > 0 ? 2 : 1);
+  const boost = (events.frenzyActive ? 2 : 1) * (state.bonusTimer > 0 ? 2 : 1);
   const gain = fish.spec.points * comboMultiplier(state.combo) * boost;
 
   state.score += gain;
   state.caught += 1;
+  state.runCoins += fish.spec.coins;
   if (fish.type === "gold") state.goldCaught += 1;
   cat.triggerCatch();
   state.shake = Math.max(state.shake, fish.isKing ? 11 : fish.isGold ? 6 : 2.5);
+
+  if (state.modeKey === "endless") {
+    const nextLimit = Math.min(
+      CONFIG.endlessMax,
+      CONFIG.endlessStart +
+        Math.floor(state.caught / CONFIG.endlessStep) * CONFIG.endlessBonus,
+    );
+    if (nextLimit > state.endlessLimit) {
+      state.endlessLimit = nextLimit;
+      particles.floatText(cat.x, cat.y - 76 * scale, `耐心 +${CONFIG.endlessBonus} 秒！`, "#ffe897");
+    }
+    state.timeLeft = state.endlessLimit;
+    state.lowWarned = false;
+  }
+
   particles.catchBurst(fish.x, fish.y, {
     special: fish.isGold,
-    text: `+${gain}`,
-    heart: { x: cat.x, y: cat.y - 24 },
+    text: options.showText === false ? "" : `+${gain}`,
+    noHearts: silent,
+    heart: silent ? null : { x: cat.x, y: cat.y - 24 },
   });
-  audio.catchFish(state.combo, fish.isGold);
+  if (!silent) audio.catchFish(state.combo, fish.isGold);
 
   if (state.combo === CONFIG.magnetCombo) {
     state.magnetTimer = CONFIG.magnetDuration;
@@ -390,7 +476,7 @@ function catchFish(fish) {
       tone: "magnet",
       duration: 2200,
     });
-    audio.milestone(1);
+    if (!silent) audio.milestone(1);
   }
 
   if (state.combo === CONFIG.bonusCombo) {
@@ -404,7 +490,7 @@ function catchFish(fish) {
       tone: "bonus",
       duration: 2800,
     });
-    audio.milestone(2);
+    if (!silent) audio.milestone(2);
   }
 
   if (fish.isKing) {
@@ -419,11 +505,41 @@ function catchFish(fish) {
       tone: "king",
       duration: 2000,
     });
-    audio.kingCaught();
+    if (!silent) audio.kingCaught();
   }
 
-  popScore();
+  if (!silent) popScore();
   syncHud(state);
+  return gain;
+}
+
+function castNet(radius) {
+  const caught = [];
+  for (let i = fishList.length - 1; i >= 0; i -= 1) {
+    const fish = fishList[i];
+    if (fish.caught) continue;
+    const reach = radius + fish.radius * 0.4;
+    if (distSq(cat.x, cat.y, fish.x, fish.y) > reach * reach) continue;
+    fish.startCatch({ x: cat.x, y: cat.y - 6 * scale });
+    caught.push(fish);
+  }
+
+  let totalGain = 0;
+  for (const fish of caught) {
+    totalGain += catchFish(fish, { silent: true, showText: false });
+  }
+  if (caught.length > 0) {
+    state.hitStop = Math.max(state.hitStop, 0.045);
+    state.shake = Math.max(state.shake, 7);
+    particles.netBurst(cat.x, cat.y, radius, caught.length, totalGain);
+    particles.hearts({ x: cat.x, y: cat.y - 24 }, caught.some((fish) => fish.isGold));
+    audio.catchFish(Math.min(state.combo, 8), caught.some((fish) => fish.isGold));
+  } else {
+    particles.netBurst(cat.x, cat.y, radius, 0);
+    particles.floatText(cat.x, cat.y - 72 * scale, "空网…", "#effffb");
+  }
+  syncHud(state);
+  return caught.length;
 }
 
 function pruneCaughtFish() {
@@ -438,29 +554,27 @@ function checkCatches() {
     if (fish.caught) continue;
     const catchDistance = cat.catchRadius + fish.radius;
     if (distSq(cat.x, cat.y, fish.x, fish.y) > catchDistance * catchDistance) continue;
-
     fish.startCatch({ x: cat.x, y: cat.y - 6 * scale });
     catchFish(fish);
     state.hitStop = Math.max(state.hitStop, CONFIG.hitStop);
   }
-
-  if (state.timeLeft <= 0 && state.mode === "playing") endGame();
 }
 
 function updateSpawning(dt) {
-  const frenzyBonus = state.frenzyActive ? 5 : 0;
+  const frenzyBonus = events.frenzyActive ? 5 : 0;
   const targetCount = Math.min(
-    maxFishNow(),
+    spawner.maxFishNow(),
     CONFIG.initialFish + Math.floor(state.elapsed / 18) * 2 + frenzyBonus,
   );
 
   if (fishList.length < targetCount) {
     state.spawnTimer -= dt;
     if (state.spawnTimer <= 0) {
-      addFish();
+      spawner.addFish();
       const pressure = clamp(state.elapsed / CONFIG.duration, 0, 1);
-      const interval = rand(0.34, 0.82) * (1 - pressure * 0.32);
-      state.spawnTimer = state.frenzyActive ? interval * 0.5 : interval;
+      const interval =
+        rand(0.34, 0.82, state.random) * (1 - pressure * 0.32);
+      state.spawnTimer = events.frenzyActive ? interval * 0.5 : interval;
     }
   } else {
     state.spawnTimer = Math.max(state.spawnTimer, 0.18);
@@ -485,49 +599,45 @@ function update(dt) {
   background.update(dt);
   particles.update(dt);
   state.shake = Math.max(0, state.shake - dt * 55);
+  const bounds = getBounds();
 
-  if (state.mode === "menu") {
-    cat.update(dt, {
-      bounds: getBounds(),
-      keysX: 0,
-      keysY: 0,
-    });
-    const env = {
-      cat,
-      bounds: getBounds(),
-      speedFactor: 0.9,
-      fleeRadius: CONFIG.fleeRadius * scale,
-    };
+  if (state.mode === "menu" || state.mode === "over") {
+    cat.update(dt, { bounds, keysX: 0, keysY: 0 });
+    const env = { cat, bounds, speedFactor: 0.9, fleeRadius: CONFIG.fleeRadius * scale };
     for (const fish of fishList) fish.update(dt, env);
-    return;
-  }
-
-  if (state.mode === "over") {
-    const env = {
-      cat,
-      bounds: getBounds(),
-      speedFactor: 0.9,
-      fleeRadius: CONFIG.fleeRadius * scale,
-    };
-    for (const fish of fishList) fish.update(dt, env);
-    pruneCaughtFish();
+    if (state.mode === "over") pruneCaughtFish();
     return;
   }
 
   state.elapsed += dt;
+  if (state.modeKey === "endless") state.endlessTime += dt;
   state.timeLeft = Math.max(0, state.timeLeft - dt);
   state.comboTimer = Math.max(0, state.comboTimer - dt);
   if (state.comboTimer <= 0 && state.combo !== 0) state.combo = 0;
   state.hintTimer = Math.max(0, state.hintTimer - dt);
   if (state.hintTimer <= 0) ui.hint.classList.remove("is-visible");
 
-  updateEvents(dt);
+  events.update(dt, state.elapsed);
+  net.update(dt);
+  state.bonusTimer = Math.max(0, state.bonusTimer - dt);
+  state.magnetTimer = Math.max(0, state.magnetTimer - dt);
+
+  if (
+    state.modeKey === "endless" &&
+    state.timeLeft <= 2 &&
+    !state.lowWarned &&
+    state.timeLeft > 0
+  ) {
+    state.lowWarned = true;
+    particles.floatText(cat.x, cat.y - 80 * scale, "快！再捞一条", "#ffdf8d");
+  }
 
   const direction = keyDirection();
   cat.update(dt, {
-    bounds: getBounds(),
+    bounds,
     keysX: direction.x,
     keysY: direction.y,
+    speedFactor: net.charging ? 0.46 : 1,
   });
 
   for (const event of cat.drainEvents()) {
@@ -538,9 +648,11 @@ function update(dt) {
   const speedFactor = 1 + clamp(state.elapsed / CONFIG.duration, 0, 1) * 0.5;
   const env = {
     cat,
-    bounds: getBounds(),
+    bounds,
     speedFactor,
     fleeRadius: CONFIG.fleeRadius * scale,
+    slowRadius: net.charging ? net.radius : 0,
+    slowFactor: 0.32,
   };
   for (const fish of fishList) {
     fish.update(dt, env);
@@ -556,10 +668,14 @@ function update(dt) {
   updateSpawning(dt);
   updateAmbient(dt);
 
-  if (state.timeLeft <= 0) endGame();
+  if (state.timeLeft <= 0) {
+    endGame(state.modeKey === "endless" ? "patience" : "time");
+    return;
+  }
 
   syncHud(state);
   syncDashUi(cat);
+  syncNetUi(net);
 }
 
 function render() {
@@ -572,6 +688,7 @@ function render() {
   }
 
   background.draw(ctx);
+  net.draw(ctx, performance.now() / 1000);
 
   const visualTime = performance.now() / 1000;
   const sortedFish = fishList.slice().sort((a, b) => a.y - b.y);
@@ -581,49 +698,8 @@ function render() {
   particles.draw(ctx);
   ctx.restore();
 
-  if (!vignette) {
-    const centerX = width / 2;
-    const centerY = height * 0.46;
-    const inner = Math.min(width, height) * 0.36;
-    const outer = Math.hypot(width, height) * 0.62;
-    vignette = ctx.createRadialGradient(centerX, centerY, inner, centerX, centerY, outer);
-    vignette.addColorStop(0, "rgba(6, 65, 73, 0)");
-    vignette.addColorStop(0.72, "rgba(6, 65, 73, 0.06)");
-    vignette.addColorStop(1, "rgba(5, 51, 61, 0.28)");
-  }
-  ctx.fillStyle = vignette;
-  ctx.fillRect(0, 0, width, height);
-
-  drawTouchIndicator();
-}
-
-function drawTouchIndicator() {
-  const point = state.touchPoint;
-  if (!point || state.mode !== "playing") return;
-  const targetY = point.y - CONFIG.touchOffset;
-
-  ctx.save();
-  ctx.strokeStyle = "rgba(255, 252, 240, 0.85)";
-  ctx.fillStyle = "rgba(255, 252, 240, 0.12)";
-  ctx.lineWidth = 2;
-  ctx.setLineDash([4, 5]);
-  ctx.beginPath();
-  ctx.arc(point.x, point.y, 17, 0, TAU);
-  ctx.fill();
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  ctx.strokeStyle = "rgba(255, 252, 240, 0.4)";
-  ctx.beginPath();
-  ctx.moveTo(point.x, point.y - 19);
-  ctx.lineTo(point.x, targetY + 5);
-  ctx.stroke();
-
-  ctx.fillStyle = "rgba(255, 248, 221, 0.92)";
-  ctx.beginPath();
-  ctx.arc(point.x, targetY, 3.2, 0, TAU);
-  ctx.fill();
-  ctx.restore();
+  background.drawVignette(ctx);
+  drawTouchIndicator(ctx, state);
 }
 
 function frame(now) {
@@ -643,85 +719,33 @@ function frame(now) {
   render();
 }
 
-function requestStart() {
-  if (state.mode === "playing") return;
-  ui.startBtn.blur();
-  ui.replayBtn.blur();
-  startGame();
-}
-
-function triggerDash() {
-  if (state.mode !== "playing") return;
-  if (cat.triggerDash()) {
-    syncDashUi(cat);
-    audio.init();
-  }
-}
-
-function setupUi() {
-  ui.startBtn.addEventListener("click", () => {
-    audio.init();
-    audio.ui();
-    requestStart();
-  });
-  ui.replayBtn.addEventListener("click", () => {
-    audio.init();
-    audio.ui();
-    requestStart();
-  });
-
-  ui.soundBtn.addEventListener("click", () => {
-    audio.toggle();
-    updateSoundButton(audio);
-  });
-
-  window.addEventListener("resize", resize);
-  window.addEventListener("orientationchange", () => window.setTimeout(resize, 180));
-
-  document.addEventListener("visibilitychange", () => {
-    state.paused = document.hidden;
-    if (document.hidden) clearKeys();
-    lastFrame = performance.now();
-  });
-}
-
-function setupDebug() {
-  if (!new URLSearchParams(window.location.search).has("debug")) return;
-  window.__nekoDebug = {
-    state,
-    fishList,
-    cat,
-    start: startGame,
-    end: endGame,
-    setScore(value) {
-      state.score = value;
-      syncHud(state, true);
-    },
-    spawnFish: addFish,
-    spawnAt(type, x, y) {
-      const fish = makeFish(type, false);
-      fish.x = x;
-      fish.y = y;
-      fish.spawnFade = 1;
-      fishList.push(fish);
-      return fish;
-    },
-    spawnKing,
-    pickFishType,
-    triggerFrenzy: startFrenzy,
-    banner: showBanner,
-  };
-}
-
 function init() {
+  applyCosmetics();
   resize();
-  seedMenuFish();
+  state.best = bestFor(state.modeKey);
+  spawner.setRandom(Math.random);
+  spawner.seedMenuFish();
   updateSoundButton(audio);
-  ui.bestValue.textContent = String(state.best);
-  ui.menuBest.textContent = String(state.best);
+  syncWallet(getCoins());
   resetHudCache();
   syncHud(state, true);
-  setupUi();
+  syncNetUi(net, true);
+  refreshModeUi();
+  setupUiEvents({
+    ui,
+    audio,
+    state,
+    net,
+    shop,
+    shareOverlay,
+    requestStart,
+    showMenu,
+    refreshModeUi,
+    resize,
+    resetFrameClock: () => {
+      lastFrame = performance.now();
+    },
+  });
   setupInput({
     canvas,
     ui,
@@ -729,13 +753,36 @@ function init() {
     cat,
     audio,
     triggerDash,
+    beginNet,
+    releaseNet,
+    cancelNet,
     requestStart,
+    isBlocked: () => state.modalOpen,
     onTouchPoint(point) {
       state.touchPoint = point;
     },
     getViewport: () => ({ width, height }),
   });
-  setupDebug();
+  installDebug({
+    state,
+    fishList,
+    cat,
+    net,
+    events,
+    shop,
+    shareOverlay,
+    startGame,
+    endGame,
+    showMenu,
+    refreshModeUi,
+    spawner,
+    castNet: () => castNet(net.radius),
+    beginNet,
+    releaseNet,
+    cancelNet,
+    showBanner,
+    getLastResult: () => lastResult,
+  });
   requestAnimationFrame((now) => {
     lastFrame = now;
     frame(now);

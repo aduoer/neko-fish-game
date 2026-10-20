@@ -28,12 +28,21 @@ export const CONFIG = Object.freeze({
   touchOffset: 62,
   doubleTapWindow: 0.28,
   longPressDelay: 0.42,
+  netCooldown: 6.5,
+  netChargeTime: 1.1,
+  netMinRadius: 72,
+  netMaxRadius: 188,
+  endlessStart: 5,
+  endlessStep: 10,
+  endlessBonus: 2,
+  endlessMax: 21,
 });
 
 export const FISH_TYPES = Object.freeze({
   sardine: {
     label: "小青鱼",
     points: 1,
+    coins: 1,
     radius: 13,
     minSpeed: 72,
     maxSpeed: 108,
@@ -48,6 +57,7 @@ export const FISH_TYPES = Object.freeze({
   koi: {
     label: "锦鲤",
     points: 2,
+    coins: 1,
     radius: 17,
     minSpeed: 64,
     maxSpeed: 96,
@@ -62,6 +72,7 @@ export const FISH_TYPES = Object.freeze({
   gold: {
     label: "小金鱼",
     points: 5,
+    coins: 3,
     radius: 14,
     minSpeed: 106,
     maxSpeed: 148,
@@ -76,6 +87,7 @@ export const FISH_TYPES = Object.freeze({
   king: {
     label: "鱼王",
     points: 20,
+    coins: 15,
     radius: 24,
     minSpeed: 92,
     maxSpeed: 126,

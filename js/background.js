@@ -1,3 +1,4 @@
+import { DEFAULT_POND, getPondSkin } from "./cosmetics.js";
 import { TAU, rand } from "./utils.js";
 
 const LILY_SPOTS = [
@@ -26,6 +27,8 @@ export class PondBackground {
     this.h = 0;
     this.time = 0;
     this.gradient = null;
+    this.vignette = null;
+    this.theme = getPondSkin(DEFAULT_POND).theme;
     this.lilies = [];
     this.petals = [];
     this.sparkles = [];
@@ -33,10 +36,21 @@ export class PondBackground {
     this.lightPools = [];
   }
 
+  setTheme(theme) {
+    this.theme = theme ?? getPondSkin(DEFAULT_POND).theme;
+    this.gradient = null;
+    this.vignette = null;
+    const colors = this.theme.petalColors ?? ["#ffd4dc", "#ffe9de"];
+    this.petals.forEach((petal, index) => {
+      petal.color = colors[index % colors.length];
+    });
+  }
+
   resize(width, height) {
     this.w = width;
     this.h = height;
     this.gradient = null;
+    this.vignette = null;
     this.buildDecor();
   }
 
@@ -66,7 +80,9 @@ export class PondBackground {
       rotation: rand(0, TAU),
       spin: rand(-0.3, 0.3),
       phase: rand(0, TAU),
-      color: index % 3 === 0 ? "#ffd4dc" : "#ffe9de",
+      color:
+        this.theme.petalColors?.[index % this.theme.petalColors.length] ??
+        (index % 3 === 0 ? "#ffd4dc" : "#ffe9de"),
     }));
 
     this.sparkles = Array.from({ length: 44 }, () => ({
@@ -114,11 +130,12 @@ export class PondBackground {
     if (w <= 0 || h <= 0) return;
 
     if (!this.gradient) {
+      const stops = this.theme.gradient;
       this.gradient = ctx.createLinearGradient(0, 0, w * 0.22, h);
-      this.gradient.addColorStop(0, "#9cecd9");
-      this.gradient.addColorStop(0.38, "#63d0c8");
-      this.gradient.addColorStop(0.72, "#3fb1c0");
-      this.gradient.addColorStop(1, "#2d98b2");
+      this.gradient.addColorStop(0, stops[0]);
+      this.gradient.addColorStop(0.38, stops[1]);
+      this.gradient.addColorStop(0.72, stops[2]);
+      this.gradient.addColorStop(1, stops[3]);
     }
     ctx.fillStyle = this.gradient;
     ctx.fillRect(0, 0, w, h);
@@ -146,8 +163,8 @@ export class PondBackground {
         pool.y + driftY,
         pool.radius,
       );
-      gradient.addColorStop(0, "rgba(255, 255, 235, 0.55)");
-      gradient.addColorStop(0.55, "rgba(226, 255, 245, 0.18)");
+      gradient.addColorStop(0, this.theme.light);
+      gradient.addColorStop(0.55, this.theme.lightSoft);
       gradient.addColorStop(1, "rgba(226, 255, 245, 0)");
       ctx.fillStyle = gradient;
       ctx.beginPath();
@@ -172,7 +189,7 @@ export class PondBackground {
         if (x === -16) ctx.moveTo(x, y);
         else ctx.lineTo(x, y);
       }
-      ctx.strokeStyle = `rgba(255, 255, 244, ${wave.alpha})`;
+      ctx.strokeStyle = `rgba(${this.theme.wave}, ${wave.alpha})`;
       ctx.lineWidth = 1.6;
       ctx.stroke();
     }
@@ -185,7 +202,7 @@ export class PondBackground {
     for (const sparkle of this.sparkles) {
       const twinkle = 0.25 + 0.75 * Math.pow(Math.max(0, Math.sin(time * sparkle.speed + sparkle.phase)), 2);
       ctx.globalAlpha = twinkle * 0.55;
-      ctx.fillStyle = "#f4fff8";
+      ctx.fillStyle = this.theme.sparkle;
       const driftX = Math.sin(time * 0.2 + sparkle.phase) * 3;
       const driftY = Math.cos(time * 0.15 + sparkle.phase) * 3;
       ctx.beginPath();
@@ -231,18 +248,12 @@ export class PondBackground {
       ctx.scale(1, 0.7);
 
       const r = lily.radius;
-      ctx.fillStyle = "rgba(20, 92, 82, 0.14)";
+      ctx.fillStyle = this.theme.lilyShade;
       ctx.beginPath();
       ctx.ellipse(4, 7, r * 1.03, r * 0.94, 0, 0, TAU);
       ctx.fill();
 
-      const fill =
-        lily.tint === 0
-          ? "#69bd85"
-          : lily.tint === 1
-            ? "#58ae7d"
-            : "#7bcb8f";
-      ctx.fillStyle = fill;
+      ctx.fillStyle = this.theme.lily[lily.tint];
       ctx.beginPath();
       ctx.arc(0, 0, r, 0.32, TAU - 0.32);
       ctx.lineTo(0, 0);
@@ -280,7 +291,7 @@ export class PondBackground {
         const angle = (i / petalCount) * TAU + offset;
         ctx.save();
         ctx.rotate(angle);
-        ctx.fillStyle = ring === 0 ? "#fff6f1" : "#ffd3db";
+        ctx.fillStyle = this.theme.flower[ring];
         ctx.beginPath();
         ctx.ellipse(0, -radius * 0.86, radius * 0.56, radius * 1.02, 0, 0, TAU);
         ctx.fill();
@@ -306,7 +317,7 @@ export class PondBackground {
         const length = 45 + i * 14;
         const lean = dir * (18 + i * 9);
         const startX = baseX + i * 7 * dir;
-        ctx.strokeStyle = i % 2 === 0 ? "#3f8d64" : "#579f70";
+        ctx.strokeStyle = i % 2 === 0 ? this.theme.reed[0] : this.theme.reed[1];
         ctx.lineWidth = 2.2;
         ctx.beginPath();
         ctx.moveTo(startX, baseY);
@@ -318,7 +329,7 @@ export class PondBackground {
         );
         ctx.stroke();
       }
-      ctx.fillStyle = "#4a3428";
+      ctx.fillStyle = this.theme.reedHead;
       for (let i = 0; i < 2; i += 1) {
         const x = baseX + 14 + i * 18;
         const y = baseY - 70 - i * 20;
@@ -332,5 +343,22 @@ export class PondBackground {
     drawCluster(w * 0.89, h - 20, 1, 0.68);
     drawCluster(w - 30, h * 0.2, -1, 0.45);
     ctx.restore();
+  }
+
+  drawVignette(ctx) {
+    const { w, h } = this;
+    if (w <= 0 || h <= 0) return;
+    if (!this.vignette) {
+      const centerX = w / 2;
+      const centerY = h * 0.46;
+      const inner = Math.min(w, h) * 0.36;
+      const outer = Math.hypot(w, h) * 0.62;
+      this.vignette = ctx.createRadialGradient(centerX, centerY, inner, centerX, centerY, outer);
+      this.vignette.addColorStop(0, "rgba(6, 65, 73, 0)");
+      this.vignette.addColorStop(0.72, "rgba(6, 65, 73, 0.05)");
+      this.vignette.addColorStop(1, this.theme.vignette);
+    }
+    ctx.fillStyle = this.vignette;
+    ctx.fillRect(0, 0, w, h);
   }
 }

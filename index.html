@@ -6,12 +6,18 @@
   <meta name="theme-color" content="#66d3c8" />
   <meta name="description" content="喵喵捞鱼记 —— 一个轻松可爱的猫咪捞鱼小游戏。移动小猫碰到小鱼，连续捞鱼还能叠加连击！" />
   <meta property="og:title" content="喵喵捞鱼记 · Neko Fishing" />
-  <meta property="og:description" content="套上泳圈，帮小猫在 60 秒内捞满一篮小鱼吧。" />
+  <meta property="og:description" content="套上泳圈，帮小猫捞满一篮小鱼吧。" />
   <meta property="og:type" content="website" />
   <title>喵喵捞鱼记 · Neko Fishing</title>
   <link rel="icon" type="image/svg+xml" href="favicon.svg" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="stylesheet" href="css/overlays.css" />
+  <link rel="stylesheet" href="css/features.css" />
+  <link rel="stylesheet" href="css/features-menu.css" />
+  <link rel="stylesheet" href="css/features-results.css" />
+  <link rel="stylesheet" href="css/features-shop.css" />
+  <link rel="stylesheet" href="css/features-share.css" />
+  <link rel="stylesheet" href="css/features-responsive.css" />
 </head>
 <body>
   <main id="app" class="app">
@@ -25,11 +31,15 @@
             <path d="M12 8.7v4.6l2.8 1.8M9.5 3.2h5M12 3.2v1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
           </svg>
           <strong id="timerValue">60</strong>
-          <span>秒</span>
+          <span id="timerUnit">秒</span>
         </div>
         <div class="pill best-pill">
           <span>最佳</span>
           <strong id="bestValue">0</strong>
+        </div>
+        <div class="pill daily-pill is-hidden" id="dailyPill">
+          <span>今日</span>
+          <strong id="dailyProgress">0/3</strong>
         </div>
       </div>
 
@@ -66,6 +76,20 @@
       <span class="dash-cd" id="dashCd" aria-hidden="true"></span>
     </button>
 
+    <button class="net-btn" id="netBtn" type="button" aria-label="按住蓄力撒网" aria-pressed="false" aria-disabled="false">
+      <span class="net-icon" aria-hidden="true">
+        <svg viewBox="0 0 28 28">
+          <path d="M14 3.2c5.8 0 10.4 4.2 10.4 9.4S19.8 22 14 22 3.6 17.8 3.6 12.6 8.2 3.2 14 3.2Z" fill="none" stroke="currentColor" stroke-width="2.2"/>
+          <path d="m6.6 6.8 14.8 12M21.4 6.8l-14.8 12M5.2 12.6h17.6" fill="none" stroke="currentColor" stroke-width="1.3" opacity=".7"/>
+          <path d="M10 23.8c1.2-1.5 2.5-2.2 4-2.2s2.8.7 4 2.2" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+      </span>
+      <span class="net-label">撒网</span>
+      <span class="net-key">E / 右键</span>
+      <span class="net-cd" id="netCd" aria-hidden="true"></span>
+      <span class="net-charge" id="netCharge" aria-hidden="true"><i></i></span>
+    </button>
+
     <div class="hint" id="hint">移动小猫，碰到小鱼就能捞到！</div>
 
     <div class="event-banner" id="eventBanner" role="status" aria-live="polite" aria-hidden="true">
@@ -97,6 +121,29 @@
         </h1>
         <p class="lead">套上泳圈，帮小猫捞满一篮小鱼吧。</p>
 
+        <div class="mode-picker" id="modePicker" role="group" aria-label="选择游戏模式">
+          <button class="mode-btn is-active" type="button" data-mode="classic" aria-pressed="true">
+            <span>经典</span><small>60 秒</small>
+          </button>
+          <button class="mode-btn" type="button" data-mode="daily" aria-pressed="false">
+            <span>每日挑战</span><small>3 个目标</small>
+          </button>
+          <button class="mode-btn" type="button" data-mode="endless" aria-pressed="false">
+            <span>无尽</span><small>耐心模式</small>
+          </button>
+        </div>
+
+        <div class="mode-preview is-hidden" id="modePreview">
+          <strong id="modePreviewTitle"></strong>
+          <div class="mode-goals" id="modePreviewGoals"></div>
+          <p id="modePreviewNote"></p>
+        </div>
+
+        <div class="wallet-row">
+          <span class="wallet"><span aria-hidden="true">●</span> <strong id="menuCoins">0</strong> 金币</span>
+          <button class="shop-open-btn" id="shopBtn" type="button">泳圈与池塘 <span aria-hidden="true">→</span></button>
+        </div>
+
         <div class="how">
           <div class="how-item">
             <span class="how-icon">🖱️</span>
@@ -110,20 +157,24 @@
             <span class="how-icon">💗</span>
             <div><b>连击加分</b><small>连续捞鱼，分数越滚越高</small></div>
           </div>
+          <div class="how-item">
+            <span class="how-icon">🕸️</span>
+            <div><b>猫爪撒网</b><small>按住蓄力，松手范围捕获</small></div>
+          </div>
         </div>
 
         <button class="primary-btn" id="startBtn" type="button">
-          <span>开始捞鱼</span>
+          <span id="startLabel">开始捞鱼</span>
           <span class="btn-arrow" aria-hidden="true">→</span>
         </button>
         <p class="best-line">历史最佳 <strong id="menuBest">0</strong> 分</p>
       </div>
     </section>
 
-    <section class="overlay is-hidden" id="overOverlay" aria-labelledby="overTitle">
+    <section class="overlay is-hidden" id="overOverlay" aria-labelledby="overTitle" aria-hidden="true">
       <div class="card over-card">
         <div class="bubbles" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
-        <div class="eyebrow">TIME'S UP</div>
+        <div class="eyebrow" id="overEyebrow">TIME'S UP</div>
         <h2 id="overTitle">时间到啦！</h2>
         <p class="lead" id="rankLine">小猫今天也很努力呢。</p>
         <div class="result-stars" id="resultStars" role="img" aria-label="3 颗星中点亮 0 颗">
@@ -131,6 +182,7 @@
           <span aria-hidden="true">★</span>
           <span aria-hidden="true">★</span>
         </div>
+        <p class="result-mode" id="resultMode">经典 60 秒</p>
         <p class="result-hook" id="resultHook"></p>
         <div class="result-score">
           <span>本局得分</span>
@@ -142,11 +194,59 @@
           <div><span>最高连击</span><strong id="finalCombo">0</strong></div>
           <div><span>历史最佳</span><strong id="finalBest">0</strong></div>
         </div>
+        <div class="result-coins">
+          <span>本局金币 <strong id="finalCoins">0</strong></span>
+          <span>钱包 <strong id="walletCoins">0</strong></span>
+        </div>
+        <p class="result-note" id="resultNote"></p>
+        <div class="daily-results is-hidden" id="dailyResults">
+          <div class="daily-results-head">
+            <strong>今日目标</strong>
+            <span id="dailyResultNote"></span>
+          </div>
+          <div class="daily-result-list" id="dailyResultList"></div>
+        </div>
         <p class="new-best is-hidden" id="newBest">✦ 新纪录 ✦</p>
         <button class="primary-btn" id="replayBtn" type="button">
           <span id="replayLabel">差一点，再来一篮</span>
           <span class="btn-arrow" aria-hidden="true">→</span>
         </button>
+        <div class="result-subactions">
+          <button class="soft-btn" id="shareBtn" type="button">分享成绩卡</button>
+          <button class="soft-btn" id="homeBtn" type="button">回到首页</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay is-hidden" id="shopOverlay" role="dialog" aria-modal="true" aria-labelledby="shopTitle" aria-hidden="true">
+      <div class="card shop-card">
+        <button class="overlay-close" id="shopCloseBtn" type="button" aria-label="关闭商店">×</button>
+        <div class="eyebrow">NEKO STYLE</div>
+        <h2 id="shopTitle">装扮小猫</h2>
+        <p class="shop-wallet">金币 <strong id="shopWallet">0</strong></p>
+        <div class="shop-tabs" id="shopTabs" role="group" aria-label="装扮分类">
+          <button type="button" data-shop-tab="ring" class="is-active" aria-pressed="true">泳圈</button>
+          <button type="button" data-shop-tab="pond" aria-pressed="false">池塘</button>
+        </div>
+        <div class="shop-grid" id="shopGrid"></div>
+        <p class="shop-message" id="shopMessage" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <section class="overlay is-hidden" id="shareOverlay" role="dialog" aria-modal="true" aria-labelledby="shareTitle" aria-hidden="true">
+      <div class="card share-card">
+        <button class="overlay-close" id="shareCloseBtn" type="button" aria-label="关闭成绩卡">×</button>
+        <div class="eyebrow">SHARE YOUR CATCH</div>
+        <h2 id="shareTitle">成绩卡准备好啦</h2>
+        <canvas id="shareCanvas" class="share-canvas" width="1080" height="1350" aria-label="本局成绩卡预览"></canvas>
+        <div class="share-actions">
+          <button class="primary-btn" id="shareDownloadBtn" type="button">
+            <span>保存 PNG</span>
+            <span class="btn-arrow" aria-hidden="true">↓</span>
+          </button>
+          <button class="soft-btn is-hidden" id="shareNativeBtn" type="button">分享到 App</button>
+        </div>
+        <p class="share-status" id="shareStatus" aria-live="polite"></p>
       </div>
     </section>
 

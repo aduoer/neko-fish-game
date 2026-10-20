@@ -1,4 +1,5 @@
 import { CONFIG } from "./config.js";
+import { DEFAULT_RING, getRingSkin } from "./cosmetics.js";
 import { TAU, clamp, damp, drawStar, rand } from "./utils.js";
 
 export class Cat {
@@ -27,6 +28,12 @@ export class Cat {
     this.starEyes = 0;
     this.trail = [];
     this.trailTimer = 0;
+    this.ringSkin = getRingSkin(DEFAULT_RING);
+  }
+
+  setRingStyle(skin) {
+    this.ringSkin =
+      typeof skin === "string" ? getRingSkin(skin) : skin ?? getRingSkin(DEFAULT_RING);
   }
 
   get catchRadius() {
@@ -101,7 +108,7 @@ export class Cat {
 
   update(dt, env) {
     this.time += dt;
-    const { bounds, keysX, keysY } = env;
+    const { bounds, keysX, keysY, speedFactor = 1 } = env;
     this.dashCooldown = Math.max(0, this.dashCooldown - dt);
     this.catchPop = Math.max(0, this.catchPop - dt);
     this.starEyes = Math.max(0, this.starEyes - dt);
@@ -123,7 +130,7 @@ export class Cat {
       this.targetY = this.y + (keysY / length) * 260;
     }
 
-    const maxSpeed = CONFIG.catSpeed * this.scale;
+    const maxSpeed = CONFIG.catSpeed * this.scale * speedFactor;
 
     if (this.dashTime > 0) {
       this.dashTime = Math.max(0, this.dashTime - dt);
@@ -292,10 +299,65 @@ export class Cat {
     ctx.restore();
   }
 
+  drawRingPattern(ctx, time, mid, thickness) {
+    const { pattern, colors } = this.ringSkin;
+    ctx.strokeStyle = colors.accent;
+    ctx.fillStyle = colors.accent;
+    ctx.lineCap = "round";
+
+    if (pattern === "dots") {
+      const count = 10;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (i / count) * TAU + time * 0.03;
+        const radius = i % 2 === 0 ? 4.6 : 2.8;
+        ctx.beginPath();
+        ctx.arc(Math.cos(angle) * mid, Math.sin(angle) * mid, radius, 0, TAU);
+        ctx.fill();
+      }
+      return;
+    }
+
+    if (pattern === "stars") {
+      const count = 8;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (i / count) * TAU + time * 0.025;
+        ctx.save();
+        ctx.translate(Math.cos(angle) * mid, Math.sin(angle) * mid);
+        ctx.rotate(angle + time * 0.08);
+        drawStar(ctx, 0, 0, i % 2 === 0 ? 5 : 3.4, i % 2 === 0 ? 1.7 : 1.2, 5);
+        ctx.fill();
+        ctx.restore();
+      }
+      return;
+    }
+
+    if (pattern === "waves") {
+      const count = 9;
+      ctx.lineWidth = 3;
+      for (let i = 0; i < count; i += 1) {
+        const angle = (i / count) * TAU + time * 0.035;
+        ctx.beginPath();
+        ctx.arc(0, 0, mid + Math.sin(angle * 2) * 1.5, angle, angle + 0.24);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    ctx.lineWidth = thickness * 0.42;
+    const stripeCount = 7;
+    for (let i = 0; i < stripeCount; i += 1) {
+      const angle = (i / stripeCount) * TAU + time * 0.04;
+      ctx.beginPath();
+      ctx.arc(0, 0, mid, angle, angle + 0.29);
+      ctx.stroke();
+    }
+  }
+
   drawRing(ctx, time, moving) {
     const outer = 60;
     const mid = 50;
     const thickness = 20;
+    const { colors } = this.ringSkin;
 
     ctx.save();
     ctx.globalAlpha = 0.18;
@@ -308,43 +370,43 @@ export class Cat {
     ctx.save();
     ctx.scale(1, 0.91);
 
-    ctx.strokeStyle = "#e85f7c";
+    ctx.strokeStyle = colors.dark;
     ctx.lineWidth = thickness + 2.5;
     ctx.beginPath();
     ctx.arc(0, 0, mid, 0, TAU);
     ctx.stroke();
 
-    ctx.strokeStyle = "#ff8ea3";
+    ctx.strokeStyle = colors.main;
     ctx.lineWidth = thickness;
     ctx.beginPath();
     ctx.arc(0, 0, mid, 0, TAU);
     ctx.stroke();
 
-    // Cream stripes
-    ctx.strokeStyle = "#fff0d9";
-    const stripeCount = 7;
-    for (let i = 0; i < stripeCount; i += 1) {
-      const angle = (i / stripeCount) * TAU + time * 0.04;
-      ctx.beginPath();
-      ctx.arc(0, 0, mid, angle, angle + 0.29);
-      ctx.stroke();
-    }
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, mid, 0, TAU);
+    ctx.lineWidth = thickness;
+    ctx.strokeStyle = colors.light;
+    ctx.globalAlpha = 0.24;
+    ctx.stroke();
+    ctx.restore();
 
-    // Inner shading and rim highlights
-    ctx.strokeStyle = "rgba(176, 45, 72, 0.24)";
+    this.drawRingPattern(ctx, time, mid, thickness);
+
+    ctx.strokeStyle = colors.shade;
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(0, 0, mid + thickness / 2 - 4, 0, TAU);
     ctx.stroke();
 
-    ctx.strokeStyle = "rgba(255, 255, 245, 0.4)";
+    ctx.strokeStyle = colors.rim;
     ctx.lineWidth = 2.4;
     ctx.beginPath();
     ctx.arc(0, 0, mid - thickness / 2 + 3, 2.35, 3.25);
     ctx.stroke();
 
     ctx.globalAlpha = 0.2 + moving * 0.08;
-    ctx.fillStyle = "#d94d6e";
+    ctx.fillStyle = colors.water;
     ctx.beginPath();
     ctx.arc(0, 0, mid - thickness / 2 - 1, 0, TAU);
     ctx.fill();

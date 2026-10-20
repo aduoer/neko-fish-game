@@ -35,6 +35,17 @@ function keyDirection() {
 
 export { keyDirection };
 
+function isInteractiveTarget(target) {
+  return (
+    target instanceof Element &&
+    Boolean(
+      target.closest(
+        "button, a[href], input, select, textarea, [role='button'], [contenteditable='true']",
+      ),
+    )
+  );
+}
+
 export function setupInput({
   canvas,
   ui,
@@ -42,7 +53,11 @@ export function setupInput({
   cat,
   audio,
   triggerDash,
+  beginNet,
+  releaseNet,
+  cancelNet,
   requestStart,
+  isBlocked,
   onTouchPoint,
   getViewport,
 }) {
@@ -50,6 +65,7 @@ export function setupInput({
   let pressStart = null;
   let lastTap = null;
   let dashFired = false;
+  let netPointer = null;
 
   function pointerPosition(event) {
     const rect = canvas.getBoundingClientRect();
@@ -95,7 +111,7 @@ export function setupInput({
 
   function handlePointerDown(event) {
     audio.init();
-    if (state.mode !== "playing") return;
+    if (isBlocked?.() || state.mode !== "playing") return;
     if (state.pointerId !== null && event.pointerId !== state.pointerId) return;
     const point = pointerPosition(event);
     const target = targetFor(event);
@@ -106,6 +122,13 @@ export function setupInput({
       canvas.setPointerCapture(event.pointerId);
     } catch {
       // Pointer capture is a progressive enhancement.
+    }
+
+    if (event.pointerType === "mouse" && event.button === 2) {
+      event.preventDefault();
+      netPointer = event.pointerId;
+      beginNet();
+      return;
     }
 
     if (event.pointerType === "mouse") {
@@ -143,6 +166,11 @@ export function setupInput({
 
   function handlePointerUp(event) {
     if (state.pointerId !== event.pointerId) return;
+    if (netPointer === event.pointerId) {
+      netPointer = null;
+      if (event.type === "pointercancel") cancelNet?.();
+      else releaseNet?.();
+    }
     state.pointerId = null;
     pressStart = null;
     clearLongPress();
@@ -155,10 +183,19 @@ export function setupInput({
   }
 
   function handleKeyDown(event) {
+    if (isBlocked?.()) return;
     const mapped = keyMap[event.key] ?? keyMap[event.key.toLowerCase?.()];
     if (mapped) {
       keys[mapped] = true;
       if (state.mode === "playing") event.preventDefault();
+      return;
+    }
+
+    if (event.key.toLowerCase?.() === "e") {
+      if (state.mode === "playing") {
+        event.preventDefault();
+        if (!event.repeat) beginNet?.();
+      }
       return;
     }
 
@@ -168,13 +205,13 @@ export function setupInput({
           state.mode === "menu"
             ? !ui.menuOverlay.classList.contains("is-hidden")
             : !ui.overOverlay.classList.contains("is-hidden");
-        if (overlayVisible) {
+        if (overlayVisible && !isInteractiveTarget(event.target)) {
           event.preventDefault();
           requestStart();
           return;
         }
       }
-      if (state.mode === "playing") {
+      if (state.mode === "playing" && !isInteractiveTarget(event.target)) {
         event.preventDefault();
         triggerDash();
       }
@@ -186,7 +223,7 @@ export function setupInput({
         state.mode === "menu"
           ? !ui.menuOverlay.classList.contains("is-hidden")
           : !ui.overOverlay.classList.contains("is-hidden");
-      if (overlayVisible) {
+      if (overlayVisible && !isInteractiveTarget(event.target)) {
         event.preventDefault();
         requestStart();
       }
@@ -194,6 +231,10 @@ export function setupInput({
   }
 
   function handleKeyUp(event) {
+    if (event.key.toLowerCase?.() === "e") {
+      if (state.mode === "playing") releaseNet?.();
+      return;
+    }
     const mapped = keyMap[event.key] ?? keyMap[event.key.toLowerCase?.()];
     if (mapped) keys[mapped] = false;
   }
@@ -209,6 +250,7 @@ export function setupInput({
   window.addEventListener("blur", () => {
     clearKeys();
     clearLongPress();
+    cancelNet?.();
   });
 
   ui.dashBtn.addEventListener("pointerdown", (event) => {
@@ -222,6 +264,44 @@ export function setupInput({
     if (event.code === "Space" || event.code === "Enter") {
       event.preventDefault();
       triggerDash();
+    }
+  });
+
+  ui.netBtn.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isBlocked?.()) return;
+    audio.init();
+    try {
+      ui.netBtn.setPointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture is optional.
+    }
+    beginNet();
+  });
+
+  ui.netBtn.addEventListener("pointerup", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    releaseNet?.();
+  });
+
+  ui.netBtn.addEventListener("pointercancel", (event) => {
+    event.stopPropagation();
+    cancelNet?.();
+  });
+
+  ui.netBtn.addEventListener("keydown", (event) => {
+    if ((event.code === "Space" || event.code === "Enter") && !event.repeat) {
+      event.preventDefault();
+      beginNet();
+    }
+  });
+
+  ui.netBtn.addEventListener("keyup", (event) => {
+    if (event.code === "Space" || event.code === "Enter") {
+      event.preventDefault();
+      releaseNet?.();
     }
   });
 }

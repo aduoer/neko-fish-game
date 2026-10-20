@@ -1,0 +1,190 @@
+/* ---------- Results extras ---------- */
+
+.over-card {
+  padding-top: 24px;
+  padding-bottom: 20px;
+}
+
+.over-card .lead {
+  margin-top: 6px;
+  margin-bottom: 10px;
+}
+
+.result-mode {
+  display: inline-flex;
+  margin: 5px auto 0;
+  padding: 4px 11px;
+  border-radius: 999px;
+  color: #a36155;
+  background: #fff0df;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.result-hook {
+  margin-bottom: 7px;
+}
+
+.result-score {
+  margin: 5px 0 12px;
+  padding: 14px 16px 12px;
+}
+
+.result-score strong {
+  font-size: clamp(44px, 11vw, 58px);
+}
+
+.result-grid {
+  margin-bottom: 12px;
+}
+
+.new-best {
+  margin: -3px 0 10px;
+}
+
+.result-coins {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin: -4px 0 8px;
+  color: #a08876;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.result-coins strong {
+  color: #c28a20;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-note {
+  margin: 0 0 8px;
+  color: #a18c7b;
+  font-size: 9.5px;
+  font-weight: 700;
+}
+
+.daily-results {
+  margin: 0 0 9px;
+  padding: 9px 11px;
+  border-radius: 16px;
+  text-align: left;
+  background: #f8f3e8;
+  border: 1px solid #eee2cf;
+}
+
+.daily-results-head {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  margin-bottom: 5px;
+}
+
+.daily-results-head strong {
+  color: #7d634b;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.daily-results-head span {
+  flex: 1;
+  color: #a38c77;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.daily-result-list {
+  display: grid;
+  gap: 3px;
+}
+
+.daily-result-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 7px;
+  border-radius: 9px;
+  background: #fffdf7;
+}
+
+.daily-result-row.is-done {
+  background: #eefff8;
+}
+
+.daily-result-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  color: #9c8774;
+  background: #f3e7d6;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.daily-result-row.is-done .daily-result-icon {
+  color: #fff;
+  background: #62c2a3;
+}
+
+.daily-result-copy {
+  min-width: 0;
+  flex: 1;
+}
+
+.daily-result-copy b {
+  display: block;
+  color: #6c5847;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.daily-result-copy small {
+  display: block;
+  margin-top: 1px;
+  color: #ac9784;
+  font-size: 8px;
+  font-weight: 700;
+}
+
+.daily-result-progress {
+  color: #b58b53;
+  font-size: 9px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.result-subactions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.soft-btn {
+  flex: 1;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 12px;
+  color: #6e807d;
+  background: #f1ece1;
+  border: 1px solid #e4dbca;
+  font-size: 11px;
+  font-weight: 900;
+  transition: transform 0.16s ease, background 0.16s ease;
+}
+
+.soft-btn:hover {
+  transform: translateY(-1px);
+  background: #eaf7f2;
+  color: #367d78;
+}
+
+.soft-btn:active {
+  transform: translateY(1px);
+}
+

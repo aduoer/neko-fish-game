@@ -1,0 +1,141 @@
+/* Modes, daily goals, cosmetics, paw net and the share-card overlay. */
+
+.is-hidden:not(.overlay) {
+  display: none !important;
+}
+
+/* ---------- HUD extras ---------- */
+
+.daily-pill {
+  color: #8a5a12;
+  background: linear-gradient(145deg, rgba(255, 248, 211, 0.94), rgba(255, 224, 135, 0.94));
+  border-color: rgba(255, 252, 228, 0.9);
+}
+
+.daily-pill strong {
+  color: #b06f1a;
+  font-size: 15px;
+}
+
+.daily-pill.is-complete {
+  color: #276f62;
+  background: linear-gradient(145deg, rgba(224, 255, 243, 0.96), rgba(166, 237, 210, 0.96));
+}
+
+.daily-pill.is-complete strong {
+  color: #208471;
+}
+
+/* ---------- Paw net button ---------- */
+
+.net-btn {
+  position: absolute;
+  z-index: 6;
+  left: max(20px, env(safe-area-inset-left));
+  bottom: max(22px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 84px;
+  height: 84px;
+  padding: 0;
+  border-radius: 50%;
+  color: #fffdf7;
+  background: linear-gradient(150deg, #64d9c8, #168c96);
+  border: 3px solid rgba(255, 250, 238, 0.72);
+  box-shadow:
+    0 6px 0 rgba(13, 98, 104, 0.36),
+    0 16px 30px rgba(11, 63, 72, 0.24),
+    inset 0 2px 0 rgba(255, 255, 255, 0.35);
+  opacity: 0;
+  transform: translateY(14px) scale(0.9);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, filter 0.2s ease;
+  touch-action: none;
+}
+
+.net-btn.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.net-btn:active,
+.net-btn.is-charging {
+  transform: translateY(2px) scale(0.97);
+}
+
+.net-btn.is-charging {
+  filter: brightness(1.08) saturate(1.08);
+  box-shadow:
+    0 4px 0 rgba(13, 98, 104, 0.36),
+    0 0 0 9px rgba(255, 233, 135, 0.14),
+    0 12px 30px rgba(11, 63, 72, 0.3);
+}
+
+.net-btn.is-cooling {
+  filter: saturate(0.42) brightness(0.9);
+}
+
+.net-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-top: -5px;
+}
+
+.net-icon svg {
+  width: 27px;
+  height: 27px;
+  filter: drop-shadow(0 2px 0 rgba(7, 72, 78, 0.24));
+}
+
+.net-label {
+  margin-top: 1px;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+}
+
+.net-key {
+  margin-top: 1px;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.74;
+}
+
+.net-cd {
+  position: absolute;
+  inset: -3px;
+  z-index: 2;
+  border-radius: 50%;
+  background: conic-gradient(rgba(7, 55, 63, 0.48) calc(var(--cd, 0) * 1%), transparent 0);
+  pointer-events: none;
+  transition: background 0.08s linear;
+}
+
+.net-charge {
+  position: absolute;
+  inset: -6px;
+  z-index: 3;
+  border-radius: 50%;
+  background: conic-gradient(#ffe36c calc(var(--charge, 0) * 1%), transparent 0);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 5px), #000 0);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.net-btn.is-charging .net-charge {
+  opacity: 1;
+}
+
+.net-btn.is-cooling .net-key {
+  opacity: 0;
+}
+

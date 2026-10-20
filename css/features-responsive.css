@@ -1,0 +1,566 @@
+/* ---------- Mode-aware polish ---------- */
+
+@media (max-width: 620px) {
+  .shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shop-card {
+    width: min(94vw, 520px);
+  }
+}
+
+@media (max-width: 760px) {
+  .hud-side:first-child {
+    position: relative;
+  }
+
+  .daily-pill {
+    position: absolute;
+    top: 42px;
+    left: 0;
+    height: 30px;
+    padding: 0 10px;
+    box-shadow: 0 5px 14px rgba(11, 76, 83, 0.12);
+  }
+}
+
+@media (max-width: 560px) {
+  .net-btn {
+    width: 74px;
+    height: 74px;
+    left: max(14px, env(safe-area-inset-left));
+    bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
+  .net-icon {
+    width: 23px;
+    height: 23px;
+  }
+
+  .net-icon svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .net-label {
+    font-size: 12px;
+  }
+
+  .net-key {
+    display: none;
+  }
+
+  .mode-btn span {
+    font-size: 11.5px;
+  }
+
+  .mode-btn small {
+    font-size: 8.5px;
+  }
+
+  .how {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 6px;
+  }
+
+  .how-item {
+    flex-direction: column;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px 5px;
+    text-align: center;
+  }
+
+  .how-item div {
+    display: block;
+  }
+
+  .how-item b {
+    font-size: 10.5px;
+  }
+
+  .how-item small {
+    font-size: 8px;
+  }
+
+  .mode-preview {
+    padding: 10px 11px;
+  }
+
+  .mode-goal {
+    font-size: 10px;
+    padding: 5px 7px;
+  }
+
+  .daily-pill {
+    padding: 0 9px;
+  }
+
+  .daily-pill span {
+    display: none;
+  }
+
+  .daily-pill strong {
+    font-size: 13px;
+  }
+
+  .result-coins {
+    margin-top: -7px;
+  }
+
+  .share-card {
+    padding: 18px 16px 16px;
+  }
+
+  .share-canvas {
+    height: min(48vh, 440px);
+  }
+}
+
+@media (max-width: 380px) {
+  .result-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    margin-bottom: 9px;
+  }
+
+  .result-grid > div {
+    padding: 6px 2px;
+  }
+
+  .result-grid strong {
+    font-size: 15px;
+  }
+
+  .result-grid span {
+    font-size: 8px;
+  }
+
+  .result-note {
+    display: none;
+  }
+
+  #overOverlay[data-mode="daily"] .result-grid,
+  #overOverlay[data-mode="daily"] .over-card .lead,
+  #overOverlay[data-mode="daily"] .result-mode,
+  #overOverlay[data-mode="daily"] .result-hook {
+    display: none;
+  }
+
+  .result-coins {
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .daily-results {
+    padding: 7px 9px;
+    margin-bottom: 7px;
+  }
+
+  .daily-result-row {
+    padding: 3px 6px;
+  }
+
+  .result-subactions {
+    margin-top: 6px;
+  }
+
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-item {
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 9px;
+  }
+
+  .shop-preview {
+    width: 60px;
+    flex: none;
+    height: 50px;
+  }
+
+  .shop-copy {
+    flex: 1;
+    text-align: left;
+  }
+
+  .shop-action {
+    width: 76px;
+    flex: none;
+  }
+
+  .mode-picker {
+    gap: 3px;
+    padding: 4px;
+  }
+
+  .mode-btn {
+    padding: 8px 3px 7px;
+  }
+
+  .mode-btn span {
+    font-size: 10.5px;
+  }
+
+  .wallet-row {
+    gap: 6px;
+  }
+
+  .wallet {
+    padding: 7px 9px;
+    font-size: 10px;
+  }
+
+  .shop-open-btn {
+    padding: 8px 10px;
+    font-size: 9.5px;
+  }
+
+  .result-subactions {
+    gap: 6px;
+  }
+
+  .soft-btn {
+    font-size: 10px;
+  }
+}
+
+@media (max-height: 600px) {
+  #menuOverlay[data-mode="daily"] .how,
+  #menuOverlay[data-mode="endless"] .how {
+    display: none;
+  }
+}
+
+@media (max-height: 640px) and (orientation: landscape) {
+  .hud-side:first-child {
+    position: relative;
+  }
+
+  .daily-pill {
+    position: absolute;
+    top: 44px;
+    left: 0;
+    height: 28px;
+    padding: 0 10px;
+    box-shadow: 0 5px 14px rgba(11, 76, 83, 0.12);
+  }
+
+  .menu-card {
+    padding: 10px 24px 12px;
+  }
+
+  .menu-card h1 {
+    margin-top: 0;
+    font-size: 24px;
+  }
+
+  .menu-card .lead {
+    display: none;
+  }
+
+  .menu-card .how {
+    display: none;
+  }
+
+  .mode-picker {
+    margin-bottom: 6px;
+  }
+
+  .mode-btn {
+    padding: 6px 4px;
+  }
+
+  .mode-btn span {
+    font-size: 11px;
+  }
+
+  .mode-preview {
+    margin-bottom: 6px;
+    padding: 5px 7px;
+  }
+
+  .mode-preview > strong {
+    display: none;
+  }
+
+  .mode-preview p {
+    display: none;
+  }
+
+  .mode-goals {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .mode-goal {
+    gap: 4px;
+    padding: 3px 5px;
+    font-size: 9px;
+  }
+
+  .mode-goal > span:first-child {
+    width: 13px;
+    font-size: 10px;
+  }
+
+  .mode-goal strong {
+    font-size: 8px;
+  }
+
+  .wallet-row {
+    margin-bottom: 6px;
+  }
+
+  .wallet {
+    padding: 5px 9px;
+  }
+
+  .shop-open-btn {
+    padding: 6px 10px;
+  }
+
+  .menu-card .primary-btn {
+    min-height: 40px;
+  }
+
+  .menu-card .best-line {
+    margin-top: 4px;
+  }
+
+  .over-card {
+    padding: 12px 24px;
+  }
+
+  .over-card .lead {
+    margin: 3px auto 7px;
+    font-size: 11px;
+  }
+
+  .result-hook {
+    min-height: 14px;
+    margin-bottom: 5px;
+    font-size: 10px;
+  }
+
+  .result-score {
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    margin: 1px 0 7px;
+    padding: 6px 12px;
+    border-radius: 14px;
+  }
+
+  .result-score strong {
+    font-size: 34px;
+  }
+
+  .result-grid {
+    margin-bottom: 7px;
+  }
+
+  .result-subactions {
+    margin-top: 5px;
+  }
+
+  .soft-btn {
+    min-height: 30px;
+  }
+
+  .how {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .mode-picker {
+    margin-bottom: 7px;
+  }
+
+  .mode-preview {
+    margin-bottom: 8px;
+    padding: 8px 10px;
+  }
+
+  .mode-preview p {
+    display: none;
+  }
+
+  .wallet-row {
+    margin-bottom: 8px;
+  }
+
+  .net-btn {
+    width: 66px;
+    height: 66px;
+    bottom: 14px;
+  }
+
+  .net-key {
+    display: none;
+  }
+
+  .net-icon {
+    width: 20px;
+    height: 20px;
+  }
+
+  .net-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .result-mode {
+    margin-top: 3px;
+  }
+
+  .result-coins {
+    margin: -1px 0 6px;
+  }
+
+  .result-note {
+    display: none;
+  }
+
+  .daily-results {
+    margin-bottom: 6px;
+    padding: 7px 9px;
+  }
+
+  .daily-results-head span {
+    display: none;
+  }
+
+  .daily-result-row {
+    padding: 3px 6px;
+  }
+
+  .result-subactions {
+    margin-top: 6px;
+  }
+
+  .soft-btn {
+    min-height: 32px;
+  }
+
+  .share-canvas {
+    height: 38vh;
+  }
+}
+
+@media (max-height: 520px) {
+  .menu-card .best-line {
+    display: none;
+  }
+
+  .mode-preview {
+    margin-bottom: 6px;
+  }
+
+  .over-card {
+    padding: 10px 22px;
+  }
+
+  .result-mode,
+  .result-coins,
+  .result-note {
+    display: none;
+  }
+
+  .result-hook {
+    display: none;
+  }
+
+  .result-score {
+    margin: 1px 0 4px;
+    padding: 4px 10px;
+  }
+
+  .result-score strong {
+    font-size: 28px;
+  }
+
+  .result-grid {
+    margin-bottom: 4px;
+  }
+
+  .result-grid > div {
+    padding: 4px 2px;
+  }
+
+  #overOverlay[data-mode="daily"] .result-grid {
+    display: none;
+  }
+
+  .over-card .primary-btn {
+    min-height: 34px;
+  }
+
+  .result-subactions {
+    margin-top: 3px;
+  }
+
+  .soft-btn {
+    min-height: 28px;
+  }
+
+  .daily-results {
+    padding: 5px 7px;
+  }
+
+  .daily-results-head {
+    margin-bottom: 3px;
+  }
+
+  .daily-result-row {
+    padding: 2px 5px;
+  }
+
+  .daily-result-copy small,
+  .daily-result-progress {
+    display: none;
+  }
+
+  .result-subactions {
+    margin-top: 4px;
+  }
+
+  .share-card {
+    padding: 12px 18px 10px;
+  }
+
+  .share-card .eyebrow {
+    display: none;
+  }
+
+  .share-card h2 {
+    margin: 0 0 6px;
+    font-size: 20px;
+  }
+
+  .share-canvas {
+    height: 36vh;
+    margin-bottom: 6px;
+  }
+
+  .share-actions {
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
+
+  .share-actions .primary-btn {
+    min-height: 40px;
+  }
+
+  .share-status {
+    min-height: 12px;
+    margin-top: 4px;
+  }
+}
+
+@keyframes messagePop {
+  0% { transform: scale(0.94); opacity: 0.5; }
+  100% { transform: scale(1); opacity: 1; }
+}

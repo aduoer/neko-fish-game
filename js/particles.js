@@ -112,7 +112,9 @@ export class Particles {
       });
     }
 
-    this.hearts(options.heart ?? { x, y }, options.special);
+    if (!options.noHearts) {
+      this.hearts(options.heart ?? { x, y }, options.special);
+    }
   }
 
   hearts(origin, special = false) {
@@ -184,6 +186,70 @@ export class Particles {
         wobble: rand(0, TAU),
       });
     }
+  }
+
+  netBurst(x, y, radius, count = 0, gain = 0) {
+    this.add({
+      kind: "ring",
+      x,
+      y,
+      size: radius * 0.18,
+      grow: radius * 2.6,
+      life: 0.58,
+      color: "rgba(255, 250, 223, 0.84)",
+    });
+    this.add({
+      kind: "ring",
+      x,
+      y,
+      size: radius * 0.3,
+      grow: radius * 1.5,
+      life: 0.42,
+      color: "rgba(170, 246, 232, 0.72)",
+    });
+    const bubbles = Math.min(22, 6 + count * 3);
+    for (let i = 0; i < bubbles; i += 1) {
+      const angle = rand(0, TAU);
+      const distance = Math.sqrt(Math.random()) * radius * 0.82;
+      this.add({
+        kind: "bubble",
+        x: x + Math.cos(angle) * distance,
+        y: y + Math.sin(angle) * distance * 0.72,
+        vx: Math.cos(angle) * rand(18, 70),
+        vy: rand(-58, -12),
+        size: rand(2, 5),
+        life: rand(0.45, 0.95),
+        color: "rgba(245, 255, 250, 0.9)",
+        wobble: rand(0, TAU),
+      });
+    }
+    if (count > 0) {
+      this.add({
+        kind: "text",
+        x,
+        y: y - 34,
+        vy: -38,
+        size: 23,
+        life: 0.85,
+        color: "#fff6c2",
+        text: `一网 ${count} 条 · +${gain}`,
+        stroke: "rgba(33, 104, 104, 0.6)",
+      });
+    }
+  }
+
+  floatText(x, y, text, color = "#fff6d5") {
+    this.add({
+      kind: "text",
+      x,
+      y,
+      vy: -34,
+      size: 18,
+      life: 0.85,
+      color,
+      text,
+      stroke: "rgba(33, 104, 104, 0.54)",
+    });
   }
 
   splash(x, y) {

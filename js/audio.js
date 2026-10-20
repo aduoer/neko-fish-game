@@ -135,6 +135,41 @@ export class AudioKit {
     this.note({ freq: 260, endFreq: 520, duration: 0.16, volume: 0.08, type: "sine" });
   }
 
+  netCast(count = 0, charge = 0) {
+    this.noise({ duration: 0.32, volume: 0.16 + charge * 0.05, from: 360, to: 1500 });
+    this.note({
+      freq: 190,
+      endFreq: 320,
+      duration: 0.2,
+      volume: 0.1,
+      type: "triangle",
+    });
+    if (count > 0) {
+      const notes = [523, 659, 784, 1046].slice(0, Math.min(4, 1 + count));
+      notes.forEach((freq, index) => {
+        this.note({
+          freq,
+          duration: 0.2,
+          volume: 0.11,
+          type: "triangle",
+          delay: 0.08 + index * 0.055,
+        });
+      });
+    }
+  }
+
+  purchase() {
+    [523, 659, 784, 1046].forEach((freq, index) => {
+      this.note({ freq, duration: 0.18, volume: 0.1, type: "sine", delay: index * 0.06 });
+    });
+  }
+
+  dailyComplete() {
+    [659, 784, 988, 1318, 1568].forEach((freq, index) => {
+      this.note({ freq, duration: 0.3, volume: 0.12, type: "triangle", delay: index * 0.09 });
+    });
+  }
+
   milestone(level = 1) {
     const notes = level >= 2 ? [784, 1046, 1318, 1568] : [698, 880, 1046];
     notes.forEach((freq, index) => {

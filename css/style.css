@@ -47,6 +47,8 @@ button {
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  /* Focused buttons must never scroll the fixed game shell. */
+  overflow: clip;
 }
 
 #pond {
