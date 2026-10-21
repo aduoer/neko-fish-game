@@ -608,7 +608,7 @@ function useFortuneRush() {
     title: "招财突击！",
     detail: `瞄准 ${result.count} 条小鱼（屏幕内 ${Math.round((result.count / result.total) * 100)}%）`,
     tone: "fortune",
-    duration: 1700,
+    duration: 2400,
   });
   ui.liveRegion.textContent = `招财突击出动，准备收集 ${result.count} 条小鱼。`;
   return true;

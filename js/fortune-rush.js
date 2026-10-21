@@ -1,7 +1,8 @@
 import { TAU, clamp, drawStar } from "./utils.js";
 import { drawZhaocai } from "./zhaocai.js";
 
-const RUSH_DURATION = 1.5;
+// Slow enough to read the chibi mascot crossing the pond, quick enough to feel lucky.
+const RUSH_DURATION = 2.6;
 const TRAIL_LIFE = 0.34;
 
 function easeInOutCubic(value) {
