@@ -1,3 +1,5 @@
+import { CAT_SKINS } from "./cat-skins.js";
+import { POND_SKINS, RING_SKINS } from "./cosmetics.js";
 import { createDailyChallenge } from "./daily.js";
 import { FISH_SKINS } from "./fish-skins.js";
 import { addCoins, getDailyRecord, getProfile } from "./progress.js";
@@ -73,6 +75,9 @@ export function installDebug(api) {
       return fish;
     },
     skins: FISH_SKINS,
+    catSkins: CAT_SKINS,
+    ringSkins: RING_SKINS,
+    pondSkins: POND_SKINS,
     spawnKing: () => events.triggerKing(),
     startFrenzy: () => events.startFrenzy(),
     triggerFrenzy: () => events.startFrenzy(),

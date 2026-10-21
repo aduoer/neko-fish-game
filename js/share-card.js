@@ -1,5 +1,6 @@
 import { Cat } from "./cat.js";
 import { SCORE_RANKS } from "./config.js";
+import { getCatSkin } from "./cat-skins.js";
 import { getPondSkin, getRingSkin } from "./cosmetics.js";
 import { TAU, drawStar, roundedRect } from "./utils.js";
 
@@ -95,9 +96,10 @@ function drawBackground(ctx, theme) {
   }
 }
 
-function drawMascot(ctx, ring) {
+function drawMascot(ctx, ring, catSkin) {
   const mascot = new Cat(1);
   mascot.setRingStyle(ring);
+  mascot.setCatStyle(catSkin);
   mascot.starEyes = 99;
   ctx.save();
   ctx.translate(WIDTH / 2, 468);
@@ -215,19 +217,20 @@ function drawCard(ctx, snapshot) {
   ctx.stroke();
   ctx.restore();
 
-  ctx.save();
-  roundedRect(ctx, 394, 225, 292, 52, 26);
-  ctx.fillStyle = "#fff0d7";
-  ctx.fill();
-  ctx.restore();
-  text(ctx, MODE_LABELS[snapshot.modeKey] ?? "喵喵捞鱼记", 540, 252, 23, "#b46156", 900);
   if (snapshot.modeKey === "daily") {
     text(ctx, snapshot.daily.challenge.key, 540, 310, 20, "#ad9a84", 800);
   } else {
     text(ctx, snapshot.dateLabel, 540, 310, 20, "#ad9a84", 800);
   }
 
-  drawMascot(ctx, snapshot.ring);
+  drawMascot(ctx, snapshot.ring, snapshot.cat);
+  // The badge sits above the mascot so long ear tufts tuck behind it.
+  ctx.save();
+  roundedRect(ctx, 394, 225, 292, 52, 26);
+  ctx.fillStyle = "#fff0d7";
+  ctx.fill();
+  ctx.restore();
+  text(ctx, MODE_LABELS[snapshot.modeKey] ?? "喵喵捞鱼记", 540, 252, 23, "#b46156", 900);
   drawStars(ctx, snapshot.stars);
 
   text(ctx, "本局得分", 540, 725, 23, "#a08876", 800);
@@ -275,7 +278,11 @@ export function renderShareCard(canvas, snapshot) {
     800,
   );
 
-  drawCard(ctx, { ...snapshot, ring: getRingSkin(snapshot.ringId) });
+  drawCard(ctx, {
+    ...snapshot,
+    ring: getRingSkin(snapshot.ringId),
+    cat: getCatSkin(snapshot.catId),
+  });
   return canvas;
 }
 

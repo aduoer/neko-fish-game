@@ -1,5 +1,7 @@
 import { CONFIG } from "./config.js";
 import { DEFAULT_RING, getRingSkin } from "./cosmetics.js";
+import { DEFAULT_CAT, getCatSkin } from "./cat-skins.js";
+import { drawAccessory, drawCheekFluff, drawHeadPattern } from "./cat-style.js";
 import { TAU, clamp, damp, drawStar, rand } from "./utils.js";
 
 export class Cat {
@@ -29,11 +31,17 @@ export class Cat {
     this.trail = [];
     this.trailTimer = 0;
     this.ringSkin = getRingSkin(DEFAULT_RING);
+    this.catSkin = getCatSkin(DEFAULT_CAT);
   }
 
   setRingStyle(skin) {
     this.ringSkin =
       typeof skin === "string" ? getRingSkin(skin) : skin ?? getRingSkin(DEFAULT_RING);
+  }
+
+  setCatStyle(skin) {
+    this.catSkin =
+      typeof skin === "string" ? getCatSkin(skin) : skin ?? getCatSkin(DEFAULT_CAT);
   }
 
   get catchRadius() {
@@ -239,7 +247,7 @@ export class Cat {
       ctx.translate(ghost.x, ghost.y - 6 * S);
       ctx.scale(S, S);
       ctx.globalAlpha = fade * 0.22;
-      ctx.fillStyle = "#ffd29a";
+      ctx.fillStyle = this.catSkin.colors.trail;
       ctx.beginPath();
       ctx.moveTo(-28, -13);
       ctx.quadraticCurveTo(-33, -39, -23, -43);
@@ -256,7 +264,7 @@ export class Cat {
       ctx.ellipse(0, -4, 32, 28, 0, 0, TAU);
       ctx.fill();
       ctx.globalAlpha = fade * 0.15;
-      ctx.strokeStyle = "#eafff8";
+      ctx.strokeStyle = this.ringSkin.colors.light;
       ctx.lineWidth = 6;
       ctx.beginPath();
       ctx.arc(0, 0, 50, 0, TAU);
@@ -282,16 +290,46 @@ export class Cat {
 
   drawTail(ctx, time, moving) {
     const sway = Math.sin(time * 2.8) * 7 + Math.sin(time * 4.1) * 2;
+    const { pattern, fluffy } = this.catSkin;
+    const c = this.catSkin.colors;
     ctx.save();
-    ctx.strokeStyle = "#f3a75f";
-    ctx.lineWidth = 12;
+    ctx.strokeStyle = c.tail;
+    ctx.lineWidth = fluffy ? 15 : 12;
     ctx.lineCap = "round";
     ctx.beginPath();
     ctx.moveTo(4, 36);
     ctx.bezierCurveTo(30, 54 + sway * 0.4, 56, 48 + sway, 48, 72 + sway * 0.7);
     ctx.stroke();
-    ctx.strokeStyle = "#ffe5c4";
-    ctx.lineWidth = 10;
+
+    if (pattern === "tabby") {
+      ctx.strokeStyle = c.stripe;
+      ctx.lineWidth = fluffy ? 7 : 6;
+      ctx.globalAlpha = 0.62;
+      ctx.beginPath();
+      ctx.moveTo(27, 51 + sway * 0.25);
+      ctx.lineTo(35, 58 + sway * 0.35);
+      ctx.moveTo(42, 56 + sway * 0.45);
+      ctx.lineTo(50, 64 + sway * 0.55);
+      ctx.moveTo(48, 69 + sway * 0.62);
+      ctx.lineTo(53, 77 + sway * 0.7);
+      ctx.stroke();
+    } else if (pattern === "calico") {
+      ctx.strokeStyle = c.patch2;
+      ctx.lineWidth = 6;
+      ctx.globalAlpha = 0.72;
+      ctx.beginPath();
+      ctx.moveTo(28, 52 + sway * 0.3);
+      ctx.lineTo(36, 60 + sway * 0.4);
+      ctx.stroke();
+    } else if (pattern === "cosmic") {
+      ctx.fillStyle = c.stripe;
+      drawStar(ctx, 34, 55 + sway * 0.4, 4.6, 2, 5);
+      ctx.fill();
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = c.tailTip;
+    ctx.lineWidth = fluffy ? 12 : 10;
     ctx.beginPath();
     ctx.moveTo(48, 66 + sway * 0.7);
     ctx.quadraticCurveTo(47, 72 + sway * 0.7, 49, 77 + sway * 0.7);
@@ -338,6 +376,21 @@ export class Cat {
         const angle = (i / count) * TAU + time * 0.035;
         ctx.beginPath();
         ctx.arc(0, 0, mid + Math.sin(angle * 2) * 1.5, angle, angle + 0.24);
+        ctx.stroke();
+      }
+      return;
+    }
+
+    if (pattern === "rainbow") {
+      const palette = this.ringSkin.patternColors;
+      if (!palette?.length) return;
+      const segment = TAU / palette.length;
+      ctx.lineWidth = thickness * 0.9;
+      for (let i = 0; i < palette.length; i += 1) {
+        const angle = i * segment + time * 0.02;
+        ctx.strokeStyle = palette[i];
+        ctx.beginPath();
+        ctx.arc(0, 0, mid, angle, angle + segment - 0.05);
         ctx.stroke();
       }
       return;
@@ -415,18 +468,19 @@ export class Cat {
   }
 
   drawPaws(ctx) {
+    const c = this.catSkin.colors;
     const paw = (x, y, angle) => {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
-      ctx.fillStyle = "#fff1db";
-      ctx.strokeStyle = "rgba(196, 121, 66, 0.22)";
+      ctx.fillStyle = c.paw;
+      ctx.strokeStyle = c.pawLine;
       ctx.lineWidth = 1.2;
       ctx.beginPath();
       ctx.ellipse(0, 0, 10.5, 8.5, 0, 0, TAU);
       ctx.fill();
       ctx.stroke();
-      ctx.strokeStyle = "rgba(185, 117, 66, 0.36)";
+      ctx.strokeStyle = c.pawClaw;
       ctx.lineWidth = 1.1;
       ctx.beginPath();
       ctx.moveTo(-3.5, -3.2);
@@ -444,6 +498,7 @@ export class Cat {
 
   drawHead(ctx, time, moving) {
     const headY = -11 + Math.sin(time * 2.5 + 0.4) * 0.6;
+    const c = this.catSkin.colors;
     ctx.save();
     ctx.translate(0, headY);
 
@@ -453,32 +508,19 @@ export class Cat {
 
     // Head
     const gradient = ctx.createRadialGradient(-10, -16, 5, 0, 2, 46);
-    gradient.addColorStop(0, "#ffe1b4");
-    gradient.addColorStop(0.6, "#ffc987");
-    gradient.addColorStop(1, "#f7ad68");
+    gradient.addColorStop(0, c.furLight);
+    gradient.addColorStop(0.6, c.furMid);
+    gradient.addColorStop(1, c.furDark);
     ctx.fillStyle = gradient;
     ctx.beginPath();
     ctx.ellipse(0, 0, 36, 32.5, 0, 0, TAU);
     ctx.fill();
 
-    // Forehead stripes
-    ctx.save();
-    ctx.strokeStyle = "#e99552";
-    ctx.lineWidth = 4.1;
-    ctx.lineCap = "round";
-    ctx.globalAlpha = 0.8;
-    ctx.beginPath();
-    ctx.moveTo(0, -28);
-    ctx.lineTo(0, -19);
-    ctx.moveTo(-11, -27);
-    ctx.quadraticCurveTo(-13, -22, -10, -18);
-    ctx.moveTo(11, -27);
-    ctx.quadraticCurveTo(13, -22, 10, -18);
-    ctx.stroke();
-    ctx.restore();
+    drawHeadPattern(ctx, this.catSkin);
+    if (this.catSkin.fluffy) drawCheekFluff(ctx, this.catSkin);
 
     // Muzzle
-    ctx.fillStyle = "#fff5e5";
+    ctx.fillStyle = c.muzzle;
     ctx.beginPath();
     ctx.ellipse(0, 10.5, 19, 13.5, 0, 0, TAU);
     ctx.fill();
@@ -486,7 +528,7 @@ export class Cat {
     this.drawEyes(ctx, time, moving);
 
     // Nose
-    ctx.fillStyle = "#e87986";
+    ctx.fillStyle = c.nose;
     ctx.beginPath();
     ctx.moveTo(0, 6.4);
     ctx.quadraticCurveTo(4.6, 8.4, 2.5, 10.8);
@@ -496,16 +538,16 @@ export class Cat {
 
     // Mouth
     if (this.catchPop > 0.12) {
-      ctx.fillStyle = "#7d4c43";
+      ctx.fillStyle = c.mouthDark;
       ctx.beginPath();
       ctx.ellipse(0, 17.2, 4.2, 5.4, 0, 0, TAU);
       ctx.fill();
-      ctx.fillStyle = "#ff9dab";
+      ctx.fillStyle = c.tongue;
       ctx.beginPath();
       ctx.ellipse(0, 19.6, 3.1, 2.1, 0, 0, TAU);
       ctx.fill();
     } else {
-      ctx.strokeStyle = "#8a5b4b";
+      ctx.strokeStyle = c.mouth;
       ctx.lineWidth = 1.7;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -518,7 +560,7 @@ export class Cat {
 
     // Whiskers
     ctx.save();
-    ctx.strokeStyle = "rgba(255, 252, 242, 0.85)";
+    ctx.strokeStyle = c.whisker;
     ctx.lineWidth = 1.35;
     ctx.lineCap = "round";
     const whiskerWiggle = Math.sin(time * 2.2) * 0.6;
@@ -539,43 +581,60 @@ export class Cat {
 
     // Blush
     ctx.globalAlpha = 0.35;
-    ctx.fillStyle = "#f7949a";
+    ctx.fillStyle = c.blush;
     ctx.beginPath();
     ctx.ellipse(-25, 12, 6, 3.5, -0.2, 0, TAU);
     ctx.ellipse(25, 12, 6, 3.5, 0.2, 0, TAU);
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    // Little daisy by the left ear
-    this.drawDaisy(ctx, 28, -28, time);
+    drawAccessory(ctx, this.catSkin, 28, -28, time);
 
     ctx.restore();
   }
 
   drawEar(ctx, side) {
+    const c = this.catSkin.colors;
+    const earColor =
+      this.catSkin.pattern === "calico" ? (side < 0 ? c.patch : c.patch2) : c.ear;
     ctx.save();
     ctx.scale(side, 1);
-    ctx.fillStyle = "#f7b06b";
+    ctx.fillStyle = earColor;
     ctx.beginPath();
     ctx.moveTo(-27, -18);
     ctx.quadraticCurveTo(-35, -42, -27, -48);
     ctx.quadraticCurveTo(-15, -45, -5, -30);
     ctx.quadraticCurveTo(-17, -25, -27, -18);
     ctx.fill();
-    ctx.fillStyle = "#ffd9be";
+    ctx.fillStyle = c.earInner;
     ctx.beginPath();
     ctx.moveTo(-24, -23);
     ctx.quadraticCurveTo(-29, -38, -26, -42);
     ctx.quadraticCurveTo(-18, -38, -11, -28);
     ctx.quadraticCurveTo(-18, -26, -24, -23);
     ctx.fill();
-    ctx.strokeStyle = "rgba(214, 129, 74, 0.28)";
+    ctx.strokeStyle = c.earLine;
     ctx.lineWidth = 1.2;
     ctx.stroke();
+    if (this.catSkin.earTufts) {
+      ctx.strokeStyle = c.stripe;
+      ctx.lineWidth = 2;
+      ctx.lineCap = "round";
+      ctx.globalAlpha = 0.82;
+      ctx.beginPath();
+      ctx.moveTo(-29, -42);
+      ctx.lineTo(-34, -51);
+      ctx.moveTo(-25, -45);
+      ctx.lineTo(-28, -55);
+      ctx.moveTo(-20, -41);
+      ctx.lineTo(-21, -48);
+      ctx.stroke();
+    }
     ctx.restore();
   }
 
   drawEyes(ctx, time, moving) {
+    const c = this.catSkin.colors;
     if (this.starEyes > 0) {
       const pulse = 0.86 + Math.sin(time * 9) * 0.14;
       for (const side of [-1, 1]) {
@@ -600,7 +659,7 @@ export class Cat {
     const happy = this.catchPop > 0.08;
     const blink = this.blink > 0;
     if (blink) {
-      ctx.strokeStyle = "#5b4038";
+      ctx.strokeStyle = c.eyeDark;
       ctx.lineWidth = 2.8;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -613,7 +672,7 @@ export class Cat {
     }
 
     if (happy) {
-      ctx.strokeStyle = "#5b4038";
+      ctx.strokeStyle = c.eyeDark;
       ctx.lineWidth = 2.9;
       ctx.lineCap = "round";
       ctx.beginPath();
@@ -630,11 +689,13 @@ export class Cat {
     for (const side of [-1, 1]) {
       const eyeX = side * 15;
       const eyeY = -2;
-      ctx.fillStyle = "#4a352f";
+      const eyeColor = side === 1 && c.eyeSecond ? c.eyeSecond : c.eye;
+      const eyeDark = side === 1 && c.eyeDarkSecond ? c.eyeDarkSecond : c.eyeDark;
+      ctx.fillStyle = eyeDark;
       ctx.beginPath();
       ctx.ellipse(eyeX, eyeY, 7.1, 9.2, -side * 0.05, 0, TAU);
       ctx.fill();
-      ctx.fillStyle = "#6b4a3d";
+      ctx.fillStyle = eyeColor;
       ctx.beginPath();
       ctx.ellipse(eyeX + lookX * 0.25, eyeY + 1.2 + lookY * 0.2, 4.6, 6.1, 0, 0, TAU);
       ctx.fill();
@@ -647,26 +708,6 @@ export class Cat {
       ctx.arc(eyeX + lookX - 1.4, eyeY + 3 + lookY, 1.1, 0, TAU);
       ctx.fill();
     }
-  }
-
-  drawDaisy(ctx, x, y, time) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(Math.sin(time * 1.8) * 0.12 - 0.2);
-    for (let i = 0; i < 5; i += 1) {
-      ctx.save();
-      ctx.rotate((i / 5) * TAU);
-      ctx.fillStyle = "#fffaf0";
-      ctx.beginPath();
-      ctx.ellipse(0, -6, 3.4, 5.2, 0, 0, TAU);
-      ctx.fill();
-      ctx.restore();
-    }
-    ctx.fillStyle = "#ffcf5d";
-    ctx.beginPath();
-    ctx.arc(0, 0, 2.8, 0, TAU);
-    ctx.fill();
-    ctx.restore();
   }
 
   drawSpeedLines(ctx, moving) {

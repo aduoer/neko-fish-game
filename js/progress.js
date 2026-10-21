@@ -3,15 +3,45 @@ import {
   DEFAULT_RING,
   POND_SKINS,
   RING_SKINS,
-  getPondSkin,
-  getRingSkin,
 } from "./cosmetics.js";
+import { CAT_SKINS, DEFAULT_CAT } from "./cat-skins.js";
 import { DAILY_BONUS, DAILY_REWARD, dateKey } from "./daily.js";
 import { readNumber, writeValue } from "./utils.js";
 
-const PROFILE_KEY = "neko-fish-profile-v1";
+const PROFILE_KEY = "neko-fish-profile-v2";
+const LEGACY_PROFILE_KEY = "neko-fish-profile-v1";
 const LEGACY_BEST_KEY = "neko-fish-best";
 const MODES = ["classic", "daily", "endless"];
+const CATALOGS = new Map([
+  ["ring", RING_SKINS],
+  ["pond", POND_SKINS],
+  ["cat", CAT_SKINS],
+]);
+const OWNED_KEYS = new Map([
+  ["ring", "ownedRings"],
+  ["pond", "ownedPonds"],
+  ["cat", "ownedCats"],
+]);
+const EQUIPPED_KEYS = new Map([
+  ["ring", "ring"],
+  ["pond", "pond"],
+  ["cat", "cat"],
+]);
+const VALID_IDS = new Map(
+  [...CATALOGS].map(([kind, catalog]) => [kind, new Set(catalog.map((item) => item.id))]),
+);
+
+function catalogFor(kind) {
+  return CATALOGS.get(kind) ?? null;
+}
+
+function ownedKeyFor(kind) {
+  return OWNED_KEYS.get(kind) ?? null;
+}
+
+function equippedKeyFor(kind) {
+  return EQUIPPED_KEYS.get(kind) ?? null;
+}
 
 function readJson(key) {
   try {
@@ -22,8 +52,7 @@ function readJson(key) {
   }
 }
 
-function validOwned(list, catalog, fallback) {
-  const valid = new Set(catalog.map((item) => item.id));
+function validOwned(list, valid, fallback) {
   const owned = Array.isArray(list) ? list.filter((id) => valid.has(id)) : [];
   if (!owned.includes(fallback)) owned.unshift(fallback);
   return [...new Set(owned)];
@@ -53,27 +82,32 @@ function sanitise(raw) {
     bests.classic = Math.max(0, Math.floor(readNumber(LEGACY_BEST_KEY, 0)));
   }
 
-  const ownedRings = validOwned(source.ownedRings, RING_SKINS, DEFAULT_RING);
-  const ownedPonds = validOwned(source.ownedPonds, POND_SKINS, DEFAULT_POND);
+  const ownedRings = validOwned(source.ownedRings, VALID_IDS.get("ring"), DEFAULT_RING);
+  const ownedPonds = validOwned(source.ownedPonds, VALID_IDS.get("pond"), DEFAULT_POND);
+  const ownedCats = validOwned(source.ownedCats, VALID_IDS.get("cat"), DEFAULT_CAT);
   const ring = ownedRings.includes(source.ring) ? source.ring : DEFAULT_RING;
   const pond = ownedPonds.includes(source.pond) ? source.pond : DEFAULT_POND;
+  const cat = ownedCats.includes(source.cat) ? source.cat : DEFAULT_CAT;
   const coins = Math.max(0, Math.floor(Number(source.coins) || 0));
 
   return {
-    version: 1,
+    version: 2,
     coins,
     ownedRings,
     ownedPonds,
+    ownedCats,
     ring,
     pond,
+    cat,
     bests,
     daily: sanitiseDaily(source.daily),
   };
 }
 
-const PROFILE_LOCK = "neko-fish-profile-v1-lock";
+const PROFILE_LOCK = "neko-fish-profile-v2-lock";
 
-let profile = sanitise(readJson(PROFILE_KEY));
+const initialProfile = readJson(PROFILE_KEY) ?? readJson(LEGACY_PROFILE_KEY);
+let profile = sanitise(initialProfile);
 
 function save() {
   try {
@@ -82,6 +116,10 @@ function save() {
     // The game remains playable when storage is unavailable.
   }
 }
+
+// Move a pre-cat save into the v2 key so an older open tab cannot strip the
+// new ownedCats/cat fields when it writes the v1 record after deployment.
+if (initialProfile && !readJson(PROFILE_KEY)) save();
 
 // Another tab may have saved since this page loaded. Pull the latest copy
 // before any read/write so purchases and rewards are not clobbered.
@@ -124,21 +162,17 @@ export function addCoins(amount) {
 }
 
 export function isOwned(kind, id) {
-  const list = kind === "ring" ? profile.ownedRings : profile.ownedPonds;
-  return list.includes(id);
-}
-
-export function getEquipped(kind) {
-  return kind === "ring" ? getRingSkin(profile.ring) : getPondSkin(profile.pond);
+  const key = ownedKeyFor(kind);
+  return key ? profile[key].includes(id) : false;
 }
 
 function equipUnlocked(kind, id) {
-  const catalog = kind === "ring" ? RING_SKINS : POND_SKINS;
-  const item = catalog.find((entry) => entry.id === id);
+  const catalog = catalogFor(kind);
+  const item = catalog?.find((entry) => entry.id === id);
   if (!item || !isOwned(kind, id)) {
     return { ok: false, reason: "locked" };
   }
-  const equipKey = kind === "ring" ? "ring" : "pond";
+  const equipKey = equippedKeyFor(kind);
   if (profile[equipKey] !== id) {
     profile = { ...profile, [equipKey]: id };
     save();
@@ -148,8 +182,8 @@ function equipUnlocked(kind, id) {
 
 export function purchase(kind, id) {
   return withProfileLock(() => {
-    const catalog = kind === "ring" ? RING_SKINS : POND_SKINS;
-    const item = catalog.find((entry) => entry.id === id);
+    const catalog = catalogFor(kind);
+    const item = catalog?.find((entry) => entry.id === id);
     if (!item) return { ok: false, reason: "missing" };
     if (isOwned(kind, id)) {
       equipUnlocked(kind, id);
@@ -159,8 +193,8 @@ export function purchase(kind, id) {
       return { ok: false, reason: "coins", item, missing: item.price - profile.coins };
     }
 
-    const key = kind === "ring" ? "ownedRings" : "ownedPonds";
-    const equipKey = kind === "ring" ? "ring" : "pond";
+    const key = ownedKeyFor(kind);
+    const equipKey = equippedKeyFor(kind);
     profile = {
       ...profile,
       coins: profile.coins - item.price,

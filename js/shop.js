@@ -1,5 +1,15 @@
+import { Cat } from "./cat.js";
+import { CAT_SKINS } from "./cat-skins.js";
 import { POND_SKINS, RING_SKINS } from "./cosmetics.js";
-import { getCoins, getProfile, isOwned, purchase } from "./progress.js";
+import { getProfile, isOwned, purchase } from "./progress.js";
+
+const DEFAULT_TAB = "cat";
+const CATALOGS = new Map([
+  ["cat", CAT_SKINS],
+  ["ring", RING_SKINS],
+  ["pond", POND_SKINS],
+]);
+const PREVIEW_CACHE = new Map();
 
 function ringPreview(ring) {
   const node = document.createElement("div");
@@ -8,6 +18,16 @@ function ringPreview(ring) {
   node.style.setProperty("--ring-dark", ring.colors.dark);
   node.style.setProperty("--ring-light", ring.colors.light);
   node.style.setProperty("--ring-accent", ring.colors.accent);
+  if (ring.pattern === "rainbow" && ring.patternColors?.length) {
+    const stops = ring.patternColors
+      .map((color, index) => {
+        const start = (index / ring.patternColors.length) * 100;
+        const end = ((index + 1) / ring.patternColors.length) * 100;
+        return `${color} ${start}% ${end}%`;
+      })
+      .join(", ");
+    node.style.background = `conic-gradient(from -8deg, ${stops})`;
+  }
   node.innerHTML = "<i></i>";
   return node;
 }
@@ -22,13 +42,32 @@ function pondPreview(pond) {
   return node;
 }
 
+function catPreview(skin) {
+  const cached = PREVIEW_CACHE.get(skin.id);
+  if (cached) return cached;
+  const canvas = document.createElement("canvas");
+  canvas.className = "cat-preview";
+  canvas.width = 160;
+  canvas.height = 160;
+  canvas.setAttribute("aria-hidden", "true");
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return canvas;
+  const mascot = new Cat(1);
+  mascot.setCatStyle(skin);
+  ctx.translate(80, 100);
+  ctx.scale(1.4, 1.4);
+  mascot.drawHead(ctx, 1.1, 0);
+  PREVIEW_CACHE.set(skin.id, canvas);
+  return canvas;
+}
+
 export class Shop {
   constructor({ ui, audio, onChange, onModalChange }) {
     this.ui = ui;
     this.audio = audio;
     this.onChange = onChange;
     this.onModalChange = onModalChange;
-    this.tab = "ring";
+    this.tab = DEFAULT_TAB;
     this.isOpen = false;
     this.previousFocus = null;
     this.bind();
@@ -39,7 +78,9 @@ export class Shop {
     this.ui.shopTabs.addEventListener("click", (event) => {
       const button = event.target.closest("[data-shop-tab]");
       if (!button) return;
-      this.tab = button.dataset.shopTab;
+      const tab = button.dataset.shopTab;
+      if (!CATALOGS.has(tab)) return;
+      this.tab = tab;
       this.audio.ui();
       this.render();
     });
@@ -111,13 +152,14 @@ export class Shop {
     this.ui.shopMessage.classList.add("is-popping");
   }
 
-  open(tab = this.tab) {
+  open(tab = DEFAULT_TAB) {
     if (this.isOpen) return;
-    this.isOpen = true;
-    this.tab = tab;
-    this.previousFocus = document.activeElement;
+    const previousFocus = document.activeElement;
+    this.tab = CATALOGS.has(tab) ? tab : DEFAULT_TAB;
     this.setMessage("");
     this.render();
+    this.isOpen = true;
+    this.previousFocus = previousFocus;
     this.ui.shopOverlay.classList.remove("is-hidden");
     this.ui.shopOverlay.setAttribute("aria-hidden", "false");
     this.onModalChange?.(true);
@@ -134,9 +176,9 @@ export class Shop {
   }
 
   render() {
+    if (!CATALOGS.has(this.tab)) this.tab = DEFAULT_TAB;
     const profile = getProfile();
-    const coins = getCoins();
-    this.ui.shopWallet.textContent = String(coins);
+    this.ui.shopWallet.textContent = String(profile.coins);
 
     for (const button of this.ui.shopTabs.querySelectorAll("[data-shop-tab]")) {
       const active = button.dataset.shopTab === this.tab;
@@ -144,8 +186,8 @@ export class Shop {
       button.setAttribute("aria-pressed", String(active));
     }
 
-    const catalog = this.tab === "ring" ? RING_SKINS : POND_SKINS;
-    const equipped = this.tab === "ring" ? profile.ring : profile.pond;
+    const catalog = CATALOGS.get(this.tab);
+    const equipped = profile[this.tab] ?? profile.ring;
     const fragment = document.createDocumentFragment();
 
     for (const item of catalog) {
@@ -153,10 +195,13 @@ export class Shop {
       const active = equipped === item.id;
       const card = document.createElement("article");
       card.className = `shop-item${active ? " is-equipped" : ""}${owned ? "" : " is-locked"}`;
+      if (item.breed) card.title = item.breed;
 
       const preview = document.createElement("div");
       preview.className = "shop-preview";
-      preview.appendChild(this.tab === "ring" ? ringPreview(item) : pondPreview(item));
+      if (this.tab === "cat") preview.appendChild(catPreview(item));
+      else if (this.tab === "ring") preview.appendChild(ringPreview(item));
+      else preview.appendChild(pondPreview(item));
 
       const copy = document.createElement("div");
       copy.className = "shop-copy";

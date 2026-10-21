@@ -21,6 +21,7 @@ export function buildShareSnapshot(state, stars, coinsEarned, isNewBest, dailyIn
     dateLabel: formatShareDate(),
     ringId: profile.ring,
     pondId: profile.pond,
+    catId: profile.cat,
     daily: dailyInfo
       ? {
           challenge: dailyInfo.challenge,

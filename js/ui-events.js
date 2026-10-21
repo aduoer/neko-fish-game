@@ -36,7 +36,7 @@ export function setupUiEvents({
   ui.shopBtn.addEventListener("click", () => {
     audio.init();
     audio.ui();
-    shop.open("ring");
+    shop.open();
   });
   ui.modePicker.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mode]");

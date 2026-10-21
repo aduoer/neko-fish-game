@@ -6,6 +6,7 @@ import { Particles } from "./particles.js";
 import { Cat } from "./cat.js";
 import { clearKeys, keyDirection, setupInput } from "./input.js";
 import { getPondSkin, getRingSkin } from "./cosmetics.js";
+import { getCatSkin } from "./cat-skins.js";
 import { FishSpawner } from "./spawner.js";
 import { PondEvents, linkEventState } from "./events.js";
 import { PawNet } from "./net.js";
@@ -142,6 +143,7 @@ function getBounds() {
 
 function applyCosmetics() {
   const profile = getProfile();
+  cat.setCatStyle(getCatSkin(profile.cat));
   cat.setRingStyle(getRingSkin(profile.ring));
   background.setTheme(getPondSkin(profile.pond).theme);
   syncWallet(profile.coins);
