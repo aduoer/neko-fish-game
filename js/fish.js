@@ -21,6 +21,7 @@ export class Fish {
     this.turnTimer = rand(1.4, 3.2, random);
     this.depth = rand(0.86, 1.08, random);
     this.caught = false;
+    this.fortuneBound = false;
     this.catchTimer = 0;
     this.catchDuration = 0.16;
     this.catchTargetX = x;

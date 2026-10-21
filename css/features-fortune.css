@@ -1,0 +1,396 @@
+/* ---------- Fortune rush ---------- */
+
+.fortune-btn {
+  position: absolute;
+  z-index: 6;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: calc(max(22px, env(safe-area-inset-bottom)) + 96px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  padding: 0;
+  border-radius: 50%;
+  color: #614015;
+  background:
+    radial-gradient(circle at 34% 22%, rgba(255, 255, 232, 0.92), transparent 43%),
+    linear-gradient(150deg, #ffe99a, #ffc94f 58%, #efa42e);
+  border: 3px solid rgba(255, 250, 235, 0.84);
+  box-shadow:
+    0 6px 0 rgba(171, 108, 16, 0.35),
+    0 16px 30px rgba(72, 47, 8, 0.22),
+    inset 0 2px 0 rgba(255, 255, 255, 0.52);
+  opacity: 0;
+  transform: translateY(14px) scale(0.9);
+  pointer-events: none;
+  touch-action: manipulation;
+  transition: opacity 0.25s ease, transform 0.25s ease, filter 0.2s ease;
+}
+
+.fortune-btn.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+.fortune-btn:active {
+  transform: translateY(3px) scale(0.96);
+  box-shadow:
+    0 3px 0 rgba(171, 108, 16, 0.35),
+    0 8px 18px rgba(72, 47, 8, 0.22);
+}
+
+.fortune-btn:focus-visible {
+  outline: 3px solid #fff6c7;
+  outline-offset: 3px;
+}
+
+.fortune-btn.is-active {
+  filter: brightness(1.08) saturate(1.08);
+  box-shadow:
+    0 4px 0 rgba(171, 108, 16, 0.35),
+    0 0 0 10px rgba(255, 236, 146, 0.18),
+    0 14px 28px rgba(72, 47, 8, 0.25);
+}
+
+.fortune-btn.is-visible.is-used:not(.is-active) {
+  opacity: 0.58;
+  filter: saturate(0.38) brightness(0.94);
+  pointer-events: none;
+}
+
+.fortune-avatar {
+  width: 32px;
+  height: 32px;
+  margin-top: -5px;
+  border-radius: 50%;
+  filter: drop-shadow(0 2px 0 rgba(134, 82, 11, 0.24));
+}
+
+.fortune-label {
+  margin-top: -1px;
+  font-size: 9.5px;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.fortune-key {
+  margin-top: 1px;
+  font-size: 7.5px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  opacity: 0.58;
+}
+
+.fortune-count {
+  position: absolute;
+  z-index: 3;
+  top: -5px;
+  right: -5px;
+  display: grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: #fffdf5;
+  background: linear-gradient(145deg, #ff8b7c, #e34f68);
+  border: 2px solid #fffaf0;
+  font-size: 10px;
+  font-weight: 900;
+  font-style: normal;
+  line-height: 1;
+  box-shadow: 0 3px 7px rgba(139, 48, 60, 0.28);
+}
+
+.fortune-btn.is-used:not(.is-active) .fortune-count {
+  color: #43786d;
+  background: #e3f5ee;
+}
+
+.fortune-btn.is-active .fortune-count {
+  animation: fortuneBadge 0.6s ease-in-out infinite alternate;
+}
+
+.fortune-ring {
+  position: absolute;
+  inset: -8px;
+  z-index: -1;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 235, 142, 0.72);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.fortune-btn.is-active .fortune-ring {
+  animation: fortuneRing 1s ease-out infinite;
+}
+
+@keyframes fortuneBadge {
+  from { transform: scale(0.9); }
+  to { transform: scale(1.08); }
+}
+
+@keyframes fortuneRing {
+  0% { opacity: 0.65; transform: scale(0.88); }
+  100% { opacity: 0; transform: scale(1.35); }
+}
+
+/* ---------- Menu helper preview ---------- */
+
+.how-item--fortune {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(255, 248, 214, 0.86), rgba(255, 236, 174, 0.54));
+  border-color: rgba(232, 191, 91, 0.45);
+}
+
+.how-icon--fortune {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+
+.how-icon--fortune canvas {
+  display: block;
+  width: 28px;
+  height: 28px;
+}
+
+/* ---------- Low-key secret command ---------- */
+
+.secret-zone {
+  position: absolute;
+  z-index: 9;
+  right: 9px;
+  bottom: 7px;
+}
+
+.secret-peek {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 50%;
+  color: #8f7867;
+  background: transparent;
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0.1;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.2s ease;
+}
+
+.secret-peek:hover,
+.secret-peek:focus-visible {
+  opacity: 0.66;
+  background: #f4eadb;
+  transform: rotate(-8deg);
+}
+
+.secret-console {
+  position: fixed;
+  z-index: 30;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: min(272px, calc(100vw - 32px));
+  padding: 9px;
+  border-radius: 14px;
+  background: #fffaf0;
+  border: 1px solid #eddcc2;
+  box-shadow:
+    0 5px 0 rgba(140, 108, 74, 0.12),
+    0 16px 30px rgba(72, 47, 8, 0.18);
+  animation: secretIn 0.2s ease both;
+}
+
+.secret-form {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.secret-input {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border-radius: 9px;
+  color: #5c4c40;
+  background: #fffdf7;
+  border: 1px solid #e9dac6;
+  font-size: 11px;
+  font-weight: 700;
+  outline: none;
+}
+
+.secret-input:focus {
+  border-color: #e3b563;
+  box-shadow: 0 0 0 2px rgba(244, 200, 76, 0.2);
+}
+
+.secret-input::placeholder {
+  color: #bca998;
+  font-weight: 600;
+}
+
+.secret-submit {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 9px;
+  color: #fffdf7;
+  background: linear-gradient(145deg, #ffc95c, #e9942f);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.secret-submit:hover {
+  filter: brightness(1.05);
+}
+
+.secret-note {
+  min-height: 13px;
+  margin: 5px 2px 0;
+  color: #a58d76;
+  text-align: left;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.secret-note.is-error {
+  color: #cf6070;
+}
+
+.secret-note.is-success {
+  color: #2d9b80;
+}
+
+.secret-console.is-shaking {
+  animation: secretShake 0.28s ease;
+}
+
+@keyframes secretIn {
+  from { opacity: 0; transform: translateY(5px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes secretShake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+/* ---------- Banner tone ---------- */
+
+.event-banner[data-tone="fortune"] {
+  color: #5c3d12;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 230, 0.7), transparent 70%),
+    linear-gradient(145deg, #fff1a7, #ffce5d 60%, #ffb741);
+  border-color: rgba(255, 253, 228, 0.9);
+  box-shadow:
+    0 5px 0 rgba(173, 113, 13, 0.24),
+    0 16px 38px rgba(118, 77, 8, 0.25);
+}
+
+@media (max-width: 560px) {
+  .fortune-btn {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 84px);
+    width: 64px;
+    height: 64px;
+  }
+
+  .fortune-avatar {
+    width: 28px;
+    height: 28px;
+    margin-top: -5px;
+  }
+
+  .fortune-label {
+    font-size: 8.5px;
+  }
+
+  .fortune-key {
+    display: none;
+  }
+
+  .fortune-count {
+    min-width: 19px;
+    height: 19px;
+    font-size: 9px;
+  }
+
+  .hint {
+    top: max(118px, calc(env(safe-area-inset-top) + 110px));
+    bottom: auto;
+    max-width: min(68vw, 280px);
+  }
+}
+
+@media (max-height: 640px) and (orientation: landscape) {
+  .fortune-btn {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(14px, env(safe-area-inset-bottom)) + 72px);
+    width: 58px;
+    height: 58px;
+  }
+
+  .fortune-avatar {
+    width: 25px;
+    height: 25px;
+    margin-top: -4px;
+  }
+
+  .fortune-label {
+    font-size: 8px;
+  }
+
+  .fortune-key {
+    display: none;
+  }
+
+  .hint {
+    top: max(78px, calc(env(safe-area-inset-top) + 70px));
+    bottom: auto;
+  }
+}
+
+@media (max-height: 520px) {
+  .fortune-btn {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 82px);
+    width: 54px;
+    height: 54px;
+  }
+
+  .how-item--fortune {
+    display: none;
+  }
+
+  .fortune-avatar {
+    width: 23px;
+    height: 23px;
+  }
+
+  .fortune-label {
+    font-size: 7.5px;
+  }
+
+  .fortune-count {
+    min-width: 17px;
+    height: 17px;
+    font-size: 8px;
+  }
+
+  .hint {
+    display: none;
+  }
+}

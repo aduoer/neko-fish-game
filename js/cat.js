@@ -301,10 +301,10 @@ export class Cat {
     ctx.bezierCurveTo(30, 54 + sway * 0.4, 56, 48 + sway, 48, 72 + sway * 0.7);
     ctx.stroke();
 
-    if (pattern === "tabby") {
+    if (pattern === "tabby" || pattern === "fortune") {
       ctx.strokeStyle = c.stripe;
       ctx.lineWidth = fluffy ? 7 : 6;
-      ctx.globalAlpha = 0.62;
+      ctx.globalAlpha = pattern === "fortune" ? 0.48 : 0.62;
       ctx.beginPath();
       ctx.moveTo(27, 51 + sway * 0.25);
       ctx.lineTo(35, 58 + sway * 0.35);

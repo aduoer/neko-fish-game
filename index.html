@@ -17,6 +17,7 @@
   <link rel="stylesheet" href="css/features-results.css" />
   <link rel="stylesheet" href="css/features-shop.css" />
   <link rel="stylesheet" href="css/features-share.css" />
+  <link rel="stylesheet" href="css/features-fortune.css" />
   <link rel="stylesheet" href="css/features-responsive.css" />
 </head>
 <body>
@@ -90,6 +91,14 @@
       <span class="net-charge" id="netCharge" aria-hidden="true"><i></i></span>
     </button>
 
+    <button class="fortune-btn" id="fortuneBtn" type="button" aria-label="招财突击：收集屏幕内三分之一到三分之二的小鱼，每局一次" aria-disabled="false">
+      <span class="fortune-count" id="fortuneCount" aria-hidden="true">1</span>
+      <canvas class="fortune-avatar" id="fortuneAvatar" width="192" height="192" aria-hidden="true"></canvas>
+      <span class="fortune-label">招财突击</span>
+      <span class="fortune-key">Q</span>
+      <span class="fortune-ring" aria-hidden="true"></span>
+    </button>
+
     <div class="hint" id="hint">移动小猫，碰到小鱼就能捞到！</div>
 
     <div class="event-banner" id="eventBanner" role="status" aria-live="polite" aria-hidden="true">
@@ -161,6 +170,12 @@
             <span class="how-icon">🕸️</span>
             <div><b>猫爪撒网</b><small>按住蓄力，松手范围捕获</small></div>
           </div>
+          <div class="how-item how-item--fortune">
+            <span class="how-icon how-icon--fortune" aria-hidden="true">
+              <canvas id="fortuneMenuAvatar" width="192" height="192"></canvas>
+            </span>
+            <div><b>招财突击</b><small>每局一次，收集屏幕内 1/3 – 2/3 的小鱼</small></div>
+          </div>
         </div>
 
         <button class="primary-btn" id="startBtn" type="button">
@@ -168,6 +183,18 @@
           <span class="btn-arrow" aria-hidden="true">→</span>
         </button>
         <p class="best-line">历史最佳 <strong id="menuBest">0</strong> 分</p>
+
+        <div class="secret-zone">
+          <button class="secret-peek" id="secretBtn" type="button" aria-label="喵喵的秘密入口" aria-expanded="false" aria-controls="secretConsole">🐾</button>
+        </div>
+      </div>
+      <div class="secret-console is-hidden" id="secretConsole" aria-hidden="true">
+        <form class="secret-form" id="secretForm" autocomplete="off">
+          <label class="sr-only" for="secretInput">神秘指令</label>
+          <input class="secret-input" id="secretInput" name="secret" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="小声说点什么…" />
+          <button class="secret-submit" type="submit" aria-label="执行口令">→</button>
+        </form>
+        <p class="secret-note" id="secretNote" aria-live="polite"></p>
       </div>
     </section>
 

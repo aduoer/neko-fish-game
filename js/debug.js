@@ -27,6 +27,8 @@ export function installDebug(api) {
     cancelNet,
     showBanner,
     getLastResult,
+    fortuneRush,
+    useFortune,
   } = api;
 
   window.__nekoDebug = {
@@ -93,5 +95,7 @@ export function installDebug(api) {
     banner: showBanner,
     refreshModeUi,
     getLastResult,
+    fortuneRush,
+    useFortune,
   };
 }

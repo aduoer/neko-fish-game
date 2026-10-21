@@ -15,6 +15,7 @@ const PATTERN_DRAWERS = new Map([
   ["calico", drawCalico],
   ["point", drawPoint],
   ["cosmic", drawCosmic],
+  ["fortune", drawFortune],
 ]);
 
 export function drawHeadPattern(ctx, catSkin) {
@@ -108,6 +109,65 @@ function drawCosmic(ctx, c) {
   }
 }
 
+function drawFortune(ctx, c) {
+  // Silver cap, white blaze and a warm nose-bridge patch echo the real cat.
+  ctx.fillStyle = c.ear;
+  ctx.globalAlpha = 0.94;
+  ctx.beginPath();
+  ctx.ellipse(0, -25, 39, 23, 0, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(-31, 0, 11, 18, 0.18, 0, TAU);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(31, 0, 11, 18, -0.18, 0, TAU);
+  ctx.fill();
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = c.muzzle;
+  ctx.beginPath();
+  ctx.moveTo(-10, -43);
+  ctx.quadraticCurveTo(-3, -18, -12, 7);
+  ctx.quadraticCurveTo(0, 17, 12, 7);
+  ctx.quadraticCurveTo(3, -18, 10, -43);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = c.patch;
+  ctx.globalAlpha = 0.9;
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 10, 8.5, 0, 0, TAU);
+  ctx.fill();
+
+  ctx.strokeStyle = c.stripe;
+  ctx.lineCap = "round";
+  ctx.globalAlpha = 0.72;
+  ctx.lineWidth = 2.4;
+  ctx.beginPath();
+  ctx.moveTo(-18, -34);
+  ctx.quadraticCurveTo(-14, -26, -17, -18);
+  ctx.moveTo(18, -34);
+  ctx.quadraticCurveTo(14, -26, 17, -18);
+  ctx.moveTo(-8, -40);
+  ctx.quadraticCurveTo(-6, -30, -9, -23);
+  ctx.moveTo(8, -40);
+  ctx.quadraticCurveTo(6, -30, 9, -23);
+  ctx.moveTo(0, -41);
+  ctx.lineTo(0, -28);
+  ctx.stroke();
+
+  ctx.globalAlpha = 0.5;
+  ctx.lineWidth = 2;
+  for (let side = -1; side <= 1; side += 2) {
+    ctx.beginPath();
+    ctx.moveTo(side * 27, -12);
+    ctx.quadraticCurveTo(side * 33, -7, side * 32, -1);
+    ctx.moveTo(side * 29, 2);
+    ctx.quadraticCurveTo(side * 34, 7, side * 32, 12);
+    ctx.stroke();
+  }
+}
+
 export function drawCheekFluff(ctx, catSkin) {
   const c = catSkin.colors;
   ctx.save();
@@ -134,6 +194,8 @@ export function drawAccessory(ctx, catSkin, x, y, time) {
     drawStarCharm(ctx, x, y, time, extraColor);
   } else if (extra === "leaf") {
     drawLeaf(ctx, x, y, time, extraColor);
+  } else if (extra === "coin") {
+    drawCoinCharm(ctx, x, y, time, extraColor);
   }
 }
 
@@ -168,6 +230,33 @@ function drawStarCharm(ctx, x, y, time, color) {
   ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
   ctx.beginPath();
   ctx.arc(-1.6, -1.8, 1.2, 0, TAU);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawCoinCharm(ctx, x, y, time, color) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(Math.sin(time * 1.7) * 0.14 + 0.12);
+  ctx.strokeStyle = "#c56f45";
+  ctx.lineWidth = 1.4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(0, -9);
+  ctx.lineTo(0, -2);
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "rgba(145, 91, 18, 0.48)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(0, 4.4, 6.6, 0, TAU);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#b47b1c";
+  ctx.fillRect(-1.9, 2.5, 3.8, 3.8);
+  ctx.fillStyle = "rgba(255, 253, 220, 0.75)";
+  ctx.beginPath();
+  ctx.arc(-2.2, 1.5, 1.4, 0, TAU);
   ctx.fill();
   ctx.restore();
 }

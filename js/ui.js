@@ -26,6 +26,15 @@ export const ui = {
   netBtn: document.getElementById("netBtn"),
   netCd: document.getElementById("netCd"),
   netCharge: document.getElementById("netCharge"),
+  fortuneBtn: document.getElementById("fortuneBtn"),
+  fortuneAvatar: document.getElementById("fortuneAvatar"),
+  fortuneCount: document.getElementById("fortuneCount"),
+  fortuneMenuAvatar: document.getElementById("fortuneMenuAvatar"),
+  secretBtn: document.getElementById("secretBtn"),
+  secretConsole: document.getElementById("secretConsole"),
+  secretForm: document.getElementById("secretForm"),
+  secretInput: document.getElementById("secretInput"),
+  secretNote: document.getElementById("secretNote"),
   hint: document.getElementById("hint"),
   eventBanner: document.getElementById("eventBanner"),
   eventKicker: document.getElementById("eventKicker"),
@@ -89,6 +98,8 @@ let dailyWasVisible = false;
 let dashWasCooling = null;
 let netWasCooling = null;
 let netWasCharging = null;
+let fortuneWasUsed = null;
+let fortuneWasActive = null;
 let bannerTimer = 0;
 
 export function resetHudCache() {
@@ -101,6 +112,8 @@ export function resetHudCache() {
   dashWasCooling = null;
   netWasCooling = null;
   netWasCharging = null;
+  fortuneWasUsed = null;
+  fortuneWasActive = null;
 }
 
 export function syncHud(state, force = false) {
@@ -188,6 +201,28 @@ export function syncNetUi(net, force = false) {
   ui.netBtn.setAttribute(
     "aria-label",
     cooling ? "撒网冷却中" : charging ? "松开撒网" : "按住蓄力撒网",
+  );
+}
+
+export function syncFortuneUi(used, active, force = false) {
+  if (force || used !== fortuneWasUsed) {
+    fortuneWasUsed = used;
+    ui.fortuneBtn.classList.toggle("is-used", used);
+  }
+  if (force || active !== fortuneWasActive) {
+    fortuneWasActive = active;
+    ui.fortuneBtn.classList.toggle("is-active", active);
+  }
+  const unavailable = used || active;
+  ui.fortuneBtn.setAttribute("aria-disabled", String(unavailable));
+  ui.fortuneCount.textContent = active ? "✦" : used ? "✓" : "1";
+  ui.fortuneBtn.setAttribute(
+    "aria-label",
+    active
+      ? "招财突击出动中"
+      : used
+        ? "招财突击本局已经用过了"
+        : "招财突击：收集屏幕内三分之一到三分之二的小鱼，每局一次",
   );
 }
 

@@ -10,6 +10,8 @@ import { getCatSkin } from "./cat-skins.js";
 import { FishSpawner } from "./spawner.js";
 import { PondEvents, linkEventState } from "./events.js";
 import { PawNet } from "./net.js";
+import { FortuneRush } from "./fortune-rush.js";
+import { drawZhaocaiPortrait } from "./zhaocai.js";
 import {
   addCoins,
   bestFor,
@@ -26,6 +28,7 @@ import { buildShareSnapshot } from "./result.js";
 import { installDebug } from "./debug.js";
 import { createControls } from "./game-controls.js";
 import { setupUiEvents } from "./ui-events.js";
+import { setupSecretCommand } from "./secret-command.js";
 import { drawTouchIndicator } from "./touch-indicator.js";
 import {
   fillResults,
@@ -34,6 +37,7 @@ import {
   resetHudCache,
   showBanner,
   syncDashUi,
+  syncFortuneUi,
   syncHud,
   syncNetUi,
   syncWallet,
@@ -87,6 +91,7 @@ const state = {
   lowWarned: false,
   modalOpen: false,
   runId: 0,
+  fortuneUsed: false,
 };
 
 const modeUi = createModeUi({ state, ui });
@@ -99,6 +104,15 @@ const spawner = new FishSpawner({
   getFrenzy: () => events.frenzyActive,
 });
 const fishList = spawner.fishList;
+
+const fortuneRush = new FortuneRush({
+  onCatch(fish) {
+    catchFish(fish, { silent: true, showText: true });
+  },
+  onFinish(count) {
+    finishFortuneRush(count);
+  },
+});
 
 const events = new PondEvents({
   audio,
@@ -211,8 +225,11 @@ function showMenu() {
   state.daily = null;
   state.touchPoint = null;
   state.modalOpen = false;
+  state.fortuneUsed = false;
   cat.finishRound();
   net.cancel();
+  fortuneRush.cancel();
+  syncFortuneUi(false, false, true);
   events.reset(state.modeKey);
   spawner.setRandom(Math.random);
   spawner.seedMenuFish();
@@ -229,6 +246,7 @@ function showMenu() {
   ui.hud.setAttribute("aria-hidden", "true");
   ui.dashBtn.classList.remove("is-visible");
   ui.netBtn.classList.remove("is-visible");
+  ui.fortuneBtn.classList.remove("is-visible");
   ui.hint.classList.remove("is-visible");
   ui.comboTag.classList.remove("is-visible");
   ui.timerPill.classList.remove("is-low");
@@ -278,6 +296,7 @@ function startGame() {
   state.endlessLimit = CONFIG.endlessStart;
   state.endlessTime = 0;
   state.lowWarned = false;
+  state.fortuneUsed = false;
   state.best = bestFor(state.modeKey);
   state.daily = state.modeKey === "daily" ? modeUi.makeDailyState() : null;
   state.random =
@@ -288,6 +307,8 @@ function startGame() {
   spawner.setRandom(state.random);
   events.reset(state.modeKey);
   net.reset();
+  fortuneRush.cancel();
+  syncFortuneUi(false, false, true);
   particles.clear();
   hideBanner();
   resetHudCache();
@@ -311,11 +332,12 @@ function startGame() {
   ui.hud.setAttribute("aria-hidden", "false");
   ui.dashBtn.classList.add("is-visible");
   ui.netBtn.classList.add("is-visible");
+  ui.fortuneBtn.classList.add("is-visible");
   ui.hint.classList.add("is-visible");
   const touchPrimary = window.matchMedia("(pointer: coarse)").matches;
   ui.hint.textContent = touchPrimary
-    ? "拖动带小猫走；按住左下角撒网，松手范围捕鱼！"
-    : "碰到小鱼就能捞；空格冲刺，按住 E / 右键蓄力撒网！";
+    ? "拖动带小猫走；按住左下撒网，点右侧招财突击！"
+    : "碰到小鱼就能捞；空格冲刺，E 撒网，Q 招财突击！";
   state.hintTimer = CONFIG.hintDuration + 1.4;
   ui.comboTag.classList.remove("is-visible");
   ui.timerPill.classList.remove("is-low");
@@ -324,6 +346,7 @@ function startGame() {
   syncHud(state, true);
   syncDashUi(cat, true);
   syncNetUi(net, true);
+  syncFortuneUi(false, false, true);
   updateSoundButton(audio);
   ui.liveRegion.textContent =
     state.modeKey === "endless"
@@ -361,10 +384,13 @@ async function endGame(reason = "time") {
   state.touchPoint = null;
   cat.finishRound();
   net.cancel();
+  fortuneRush.cancel();
+  syncFortuneUi(state.fortuneUsed, false, true);
   events.frenzyActive = false;
   ui.hint.classList.remove("is-visible");
   ui.dashBtn.classList.remove("is-visible");
   ui.netBtn.classList.remove("is-visible");
+  ui.fortuneBtn.classList.remove("is-visible");
   ui.comboTag.classList.remove("is-visible");
   hideBanner();
   syncNetUi(net, true);
@@ -515,11 +541,84 @@ function catchFish(fish, options = {}) {
   return gain;
 }
 
+function finishFortuneRush(count) {
+  syncFortuneUi(state.fortuneUsed, false, true);
+  if (state.mode !== "playing") return;
+  if (count > 0) {
+    particles.hearts({ x: cat.x, y: cat.y - 24 }, true);
+    particles.floatText(width * 0.5, height * 0.44, `招财 +${count}`, "#ffe58b");
+    showBanner({
+      kicker: "LUCKY RUSH",
+      title: `招财捞到 ${count} 条！`,
+      detail: "小猫的幸运突击",
+      tone: "fortune",
+      duration: 2200,
+    });
+    audio.milestone(count >= 5 ? 2 : 1);
+    ui.liveRegion.textContent = `招财突击捞到 ${count} 条小鱼。`;
+  } else {
+    showBanner({
+      kicker: "LUCKY RUSH",
+      title: "招财扑了个空…",
+      detail: "等小鱼多一点再用吧",
+      tone: "fortune",
+      duration: 1900,
+    });
+    ui.liveRegion.textContent = "招财突击没有捞到小鱼。";
+  }
+  syncHud(state);
+}
+
+function useFortuneRush() {
+  if (
+    state.mode !== "playing" ||
+    state.modalOpen ||
+    state.fortuneUsed ||
+    fortuneRush.active
+  ) {
+    return false;
+  }
+
+  const result = fortuneRush.start({
+    fishList,
+    width,
+    height,
+    bounds: getBounds(),
+    cat,
+    random: state.random,
+  });
+  if (!result.ok) {
+    particles.floatText(
+      cat.x,
+      cat.y - 76 * scale,
+      "等小鱼游过来再用…",
+      "#fff3c4",
+    );
+    ui.liveRegion.textContent = "池塘里还没有小鱼，招财突击没有出发。";
+    return false;
+  }
+
+  state.fortuneUsed = true;
+  state.hitStop = Math.max(state.hitStop, 0.045);
+  audio.init();
+  audio.fortune();
+  syncFortuneUi(true, true, true);
+  showBanner({
+    kicker: "LUCKY RUSH",
+    title: "招财突击！",
+    detail: `瞄准 ${result.count} 条小鱼（屏幕内 ${Math.round((result.count / result.total) * 100)}%）`,
+    tone: "fortune",
+    duration: 1700,
+  });
+  ui.liveRegion.textContent = `招财突击出动，准备收集 ${result.count} 条小鱼。`;
+  return true;
+}
+
 function castNet(radius) {
   const caught = [];
   for (let i = fishList.length - 1; i >= 0; i -= 1) {
     const fish = fishList[i];
-    if (fish.caught) continue;
+    if (fish.caught || fish.fortuneBound) continue;
     const reach = radius + fish.radius * 0.4;
     if (distSq(cat.x, cat.y, fish.x, fish.y) > reach * reach) continue;
     fish.startCatch({ x: cat.x, y: cat.y - 6 * scale });
@@ -553,7 +652,7 @@ function pruneCaughtFish() {
 function checkCatches() {
   for (let i = fishList.length - 1; i >= 0; i -= 1) {
     const fish = fishList[i];
-    if (fish.caught) continue;
+    if (fish.caught || fish.fortuneBound) continue;
     const catchDistance = cat.catchRadius + fish.radius;
     if (distSq(cat.x, cat.y, fish.x, fish.y) > catchDistance * catchDistance) continue;
     fish.startCatch({ x: cat.x, y: cat.y - 6 * scale });
@@ -658,11 +757,12 @@ function update(dt) {
   };
   for (const fish of fishList) {
     fish.update(dt, env);
-    if (!fish.caught && state.magnetTimer > 0) {
+    if (!fish.caught && !fish.fortuneBound && state.magnetTimer > 0) {
       fish.attract(dt, cat, CONFIG.magnetRadius * scale, CONFIG.magnetSpeed * scale);
     }
   }
 
+  fortuneRush.update(dt);
   pruneCaughtFish();
   checkCatches();
   if (state.mode !== "playing") return;
@@ -697,6 +797,7 @@ function render() {
   for (const fish of sortedFish) fish.draw(ctx, visualTime);
 
   cat.draw(ctx, visualTime);
+  fortuneRush.draw(ctx, visualTime);
   particles.draw(ctx);
   ctx.restore();
 
@@ -722,6 +823,9 @@ function frame(now) {
 }
 
 function init() {
+  drawZhaocaiPortrait(ui.fortuneAvatar, 1.1);
+  drawZhaocaiPortrait(ui.fortuneMenuAvatar, 2.4);
+  setupSecretCommand({ ui, audio });
   applyCosmetics();
   resize();
   state.best = bestFor(state.modeKey);
@@ -755,6 +859,7 @@ function init() {
     cat,
     audio,
     triggerDash,
+    triggerFortune: useFortuneRush,
     beginNet,
     releaseNet,
     cancelNet,
@@ -784,6 +889,8 @@ function init() {
     cancelNet,
     showBanner,
     getLastResult: () => lastResult,
+    fortuneRush,
+    useFortune: useFortuneRush,
   });
   requestAnimationFrame((now) => {
     lastFrame = now;

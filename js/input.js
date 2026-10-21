@@ -53,6 +53,7 @@ export function setupInput({
   cat,
   audio,
   triggerDash,
+  triggerFortune,
   beginNet,
   releaseNet,
   cancelNet,
@@ -199,6 +200,18 @@ export function setupInput({
       return;
     }
 
+    if (event.key.toLowerCase?.() === "q") {
+      if (
+        state.mode === "playing" &&
+        !event.repeat &&
+        !isInteractiveTarget(event.target)
+      ) {
+        event.preventDefault();
+        triggerFortune?.();
+      }
+      return;
+    }
+
     if (event.code === "Space") {
       if (state.mode === "menu" || state.mode === "over") {
         const overlayVisible =
@@ -265,6 +278,14 @@ export function setupInput({
       event.preventDefault();
       triggerDash();
     }
+  });
+
+  ui.fortuneBtn.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (isBlocked?.()) return;
+    audio.init();
+    triggerFortune?.();
   });
 
   ui.netBtn.addEventListener("pointerdown", (event) => {

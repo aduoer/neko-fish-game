@@ -164,6 +164,21 @@ export class AudioKit {
     });
   }
 
+  fortune() {
+    this.noise({ duration: 0.35, volume: 0.11, from: 500, to: 1800 });
+    [523, 659, 784, 1046, 1318].forEach((freq, index) => {
+      this.note({
+        freq,
+        endFreq: freq * 1.06,
+        duration: 0.22,
+        volume: 0.1,
+        type: "triangle",
+        delay: index * 0.055,
+      });
+    });
+    this.note({ freq: 2093, duration: 0.3, volume: 0.06, type: "sine", delay: 0.32 });
+  }
+
   dailyComplete() {
     [659, 784, 988, 1318, 1568].forEach((freq, index) => {
       this.note({ freq, duration: 0.3, volume: 0.12, type: "triangle", delay: index * 0.09 });
