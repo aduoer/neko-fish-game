@@ -1,7 +1,12 @@
 import { CONFIG } from "./config.js";
 import { DEFAULT_RING, getRingSkin } from "./cosmetics.js";
 import { DEFAULT_CAT, getCatSkin } from "./cat-skins.js";
-import { drawAccessory, drawCheekFluff, drawHeadPattern } from "./cat-style.js";
+import {
+  drawAccessory,
+  drawCheekFluff,
+  drawFaceExtra,
+  drawHeadPattern,
+} from "./cat-style.js";
 import { TAU, clamp, damp, drawStar, rand } from "./utils.js";
 
 export class Cat {
@@ -588,6 +593,7 @@ export class Cat {
     ctx.fill();
     ctx.globalAlpha = 1;
 
+    drawFaceExtra(ctx, this.catSkin, time);
     drawAccessory(ctx, this.catSkin, 28, -28, time);
 
     ctx.restore();

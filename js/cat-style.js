@@ -168,6 +168,10 @@ function drawFortune(ctx, c) {
   }
 }
 
+export function drawFaceExtra(ctx, catSkin, time) {
+  if (catSkin.faceExtra === "shades") drawShades(ctx, time);
+}
+
 export function drawCheekFluff(ctx, catSkin) {
   const c = catSkin.colors;
   ctx.save();
@@ -197,6 +201,76 @@ export function drawAccessory(ctx, catSkin, x, y, time) {
   } else if (extra === "coin") {
     drawCoinCharm(ctx, x, y, time, extraColor);
   }
+}
+
+function drawShades(ctx, time) {
+  // A pair of aviator shades with a warm gold bridge and a slow lens glint.
+  const glint = 0.24 + Math.sin(time * 2.4) * 0.08;
+  ctx.save();
+
+  for (const side of [-1, 1]) {
+    ctx.save();
+    ctx.translate(side * 15, -2);
+    ctx.rotate(side * 0.045);
+    const lens = ctx.createLinearGradient(-8, -9, 8, 8);
+    lens.addColorStop(0, "#4b5b5f");
+    lens.addColorStop(0.35, "#243338");
+    lens.addColorStop(1, "#11191d");
+    ctx.fillStyle = lens;
+    ctx.strokeStyle = "rgba(34, 29, 24, 0.95)";
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.ellipse(0, -0.4, 11.7, 9.2, 0, 0, TAU);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(190, 245, 235, ${glint})`;
+    ctx.lineWidth = 1.7;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(-7.6, 2.2);
+    ctx.lineTo(0.5, -6.2);
+    ctx.stroke();
+
+    ctx.fillStyle = "#d8b16a";
+    ctx.beginPath();
+    ctx.arc(side * 11.8, -1.8, 1.35, 0, TAU);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.strokeStyle = "rgba(34, 29, 24, 0.95)";
+  ctx.lineWidth = 2.1;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(-8, -4.6);
+  ctx.quadraticCurveTo(0, -1.8, 8, -4.6);
+  ctx.stroke();
+
+  ctx.strokeStyle = "#c9a25c";
+  ctx.lineWidth = 1.15;
+  ctx.beginPath();
+  ctx.moveTo(-6.4, -4.1);
+  ctx.quadraticCurveTo(0, -2.2, 6.4, -4.1);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(32, 27, 22, 0.9)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-26, -7.2);
+  ctx.lineTo(-33.5, -10.2);
+  ctx.moveTo(26, -7.2);
+  ctx.lineTo(33.5, -10.2);
+  ctx.stroke();
+
+  ctx.fillStyle = "#d8b16a";
+  for (const side of [-1, 1]) {
+    ctx.beginPath();
+    ctx.arc(side * 26.4, -7.4, 1.2, 0, TAU);
+    ctx.fill();
+  }
+
+  ctx.restore();
 }
 
 function drawBow(ctx, x, y, time, color) {
