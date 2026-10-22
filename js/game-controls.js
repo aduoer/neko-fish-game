@@ -45,6 +45,9 @@ export function createControls({ state, ui, cat, audio, net, startGame }) {
     state.modalOpen = open;
     if (state.mode === "menu") ui.menuOverlay.inert = open;
     if (state.mode === "over") ui.overOverlay.inert = open;
+    if (!ui.pauseOverlay.classList.contains("is-hidden")) {
+      ui.pauseOverlay.inert = open;
+    }
   }
 
   return { beginNet, cancelNet, onModalChange, releaseNet, requestStart, triggerDash };

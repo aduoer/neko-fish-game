@@ -12,6 +12,9 @@ export function setupUiEvents({
   showMenu,
   refreshModeUi,
   resize,
+  openDex,
+  openBoard,
+  openSettings,
   resetFrameClock,
 }) {
   ui.startBtn.addEventListener("click", () => {
@@ -38,6 +41,18 @@ export function setupUiEvents({
     audio.ui();
     shop.open();
   });
+  ui.dexBtn.addEventListener("click", () => {
+    audio.init();
+    openDex?.();
+  });
+  ui.boardBtn.addEventListener("click", () => {
+    audio.init();
+    openBoard?.();
+  });
+  ui.settingsBtn.addEventListener("click", () => {
+    audio.init();
+    openSettings?.();
+  });
   ui.modePicker.addEventListener("click", (event) => {
     const button = event.target.closest("[data-mode]");
     if (!button || state.mode !== "menu") return;
@@ -56,7 +71,7 @@ export function setupUiEvents({
   window.addEventListener("resize", resize);
   window.addEventListener("orientationchange", () => window.setTimeout(resize, 180));
   document.addEventListener("visibilitychange", () => {
-    state.paused = document.hidden;
+    state.paused = document.hidden || state.manualPaused;
     if (document.hidden) {
       clearKeys();
       net.cancel();

@@ -4,6 +4,7 @@ import { createDailyChallenge } from "./daily.js";
 import { FISH_SKINS } from "./fish-skins.js";
 import { addCoins, getDailyRecord, getProfile } from "./progress.js";
 import { pickFishType } from "./spawner.js";
+import { buildSaveText, importSaveText } from "./save-data.js";
 import { syncHud } from "./ui.js";
 
 export function installDebug(api) {
@@ -29,6 +30,10 @@ export function installDebug(api) {
     getLastResult,
     fortuneRush,
     useFortune,
+    pauseMenu,
+    dexOverlay,
+    boardOverlay,
+    settingsPanel,
   } = api;
 
   window.__nekoDebug = {
@@ -97,5 +102,12 @@ export function installDebug(api) {
     getLastResult,
     fortuneRush,
     useFortune,
+    pause: () => pauseMenu.open(),
+    resume: () => pauseMenu.close(),
+    openDex: () => dexOverlay.open(),
+    openBoard: () => boardOverlay.open(),
+    openSettings: () => settingsPanel.open(),
+    exportSave: () => buildSaveText(),
+    importSave: (text) => importSaveText(text),
   };
 }

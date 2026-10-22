@@ -13,6 +13,8 @@ export function buildShareSnapshot(state, stars, coinsEarned, isNewBest, dailyIn
     caught: state.caught,
     goldCaught: state.goldCaught,
     bestCombo: state.bestCombo,
+    fortuneUsed: state.fortuneUsed,
+    fortuneCaught: state.fortuneCaught,
     best: state.best,
     stars,
     coins: coinsEarned,

@@ -18,6 +18,8 @@ export const ui = {
   comboTag: document.getElementById("comboTag"),
   comboValue: document.getElementById("comboValue"),
   comboBar: document.getElementById("comboBar"),
+  comboSpeed: document.getElementById("comboSpeed"),
+  pauseBtn: document.getElementById("pauseBtn"),
   dailyPill: document.getElementById("dailyPill"),
   dailyProgress: document.getElementById("dailyProgress"),
   soundBtn: document.getElementById("soundBtn"),
@@ -57,6 +59,7 @@ export const ui = {
   rankLine: document.getElementById("rankLine"),
   resultStars: document.getElementById("resultStars"),
   resultHook: document.getElementById("resultHook"),
+  resultExtra: document.getElementById("resultExtra"),
   resultMode: document.getElementById("resultMode"),
   resultNote: document.getElementById("resultNote"),
   finalScore: document.getElementById("finalScore"),
@@ -87,11 +90,43 @@ export const ui = {
   shareNativeBtn: document.getElementById("shareNativeBtn"),
   shareStatus: document.getElementById("shareStatus"),
   liveRegion: document.getElementById("liveRegion"),
+  pauseOverlay: document.getElementById("pauseOverlay"),
+  pauseResumeBtn: document.getElementById("pauseResumeBtn"),
+  pauseSettingsBtn: document.getElementById("pauseSettingsBtn"),
+  pauseRestartBtn: document.getElementById("pauseRestartBtn"),
+  pauseQuitBtn: document.getElementById("pauseQuitBtn"),
+  settingsBtn: document.getElementById("settingsBtn"),
+  settingsOverlay: document.getElementById("settingsOverlay"),
+  settingsCloseBtn: document.getElementById("settingsCloseBtn"),
+  volumeRange: document.getElementById("volumeRange"),
+  volumeValue: document.getElementById("volumeValue"),
+  motionSelect: document.getElementById("motionSelect"),
+  saveExportBtn: document.getElementById("saveExportBtn"),
+  saveImportBtn: document.getElementById("saveImportBtn"),
+  saveImportFile: document.getElementById("saveImportFile"),
+  saveResetBtn: document.getElementById("saveResetBtn"),
+  saveStatus: document.getElementById("saveStatus"),
+  dexBtn: document.getElementById("dexBtn"),
+  dexMenuCount: document.getElementById("dexMenuCount"),
+  dexOverlay: document.getElementById("dexOverlay"),
+  dexCloseBtn: document.getElementById("dexCloseBtn"),
+  dexFound: document.getElementById("dexFound"),
+  dexTotal: document.getElementById("dexTotal"),
+  dexBadge: document.getElementById("dexBadge"),
+  dexGrid: document.getElementById("dexGrid"),
+  dexProgressText: document.getElementById("dexProgressText"),
+  boardBtn: document.getElementById("boardBtn"),
+  boardOverlay: document.getElementById("boardOverlay"),
+  boardCloseBtn: document.getElementById("boardCloseBtn"),
+  boardTabs: document.getElementById("boardTabs"),
+  boardList: document.getElementById("boardList"),
+  boardEmpty: document.getElementById("boardEmpty"),
 };
 
 let hudScore = -1;
 let hudTime = -1;
 let hudCombo = -1;
+let hudComboSpeed = -1;
 let hudComboVisible = false;
 let hudDaily = -1;
 let dailyWasVisible = false;
@@ -106,6 +141,7 @@ export function resetHudCache() {
   hudScore = -1;
   hudTime = -1;
   hudCombo = -1;
+  hudComboSpeed = -1;
   hudComboVisible = false;
   hudDaily = -1;
   dailyWasVisible = false;
@@ -146,6 +182,11 @@ export function syncHud(state, force = false) {
   }
 
   if (comboVisible) {
+    const speed = state.comboSpeed ?? 1;
+    if (force || speed !== hudComboSpeed) {
+      hudComboSpeed = speed;
+      ui.comboSpeed.textContent = `+${Math.round((speed - 1) * 100)}% 速`;
+    }
     const ratio = clamp(state.comboTimer / CONFIG.comboWindow, 0, 1);
     ui.comboBar.style.transform = `scaleX(${ratio.toFixed(3)})`;
   }
@@ -314,21 +355,47 @@ export function fillResults(state, isNewBest, info = {}) {
       : `再捞 ${gap} 分，就能点亮下一颗星。`;
   }
 
+  const extras = [];
+  if (info.localRank) {
+    extras.push(
+      info.localRank === 1
+        ? "本地榜第 1 名"
+        : info.localGap > 0
+          ? `本地榜第 ${info.localRank} 名 · 距上一名 ${info.localGap} 分`
+          : `本地榜第 ${info.localRank} 名`,
+    );
+  }
+  if (info.fortuneCaught > 0) {
+    extras.push(`招财突击捞到 ${info.fortuneCaught} 条`);
+  } else if (info.fortuneUsed) {
+    extras.push("招财突击扑空了");
+  } else {
+    extras.push("招财突击未使用");
+  }
+  if (info.dexNew > 0) {
+    extras.push(`图鉴 +${info.dexNew} 种新鱼`);
+  }
+  ui.resultExtra.textContent = extras.join(" · ");
+
   ui.overOverlay.dataset.mode = info.modeKey ?? "classic";
   ui.overEyebrow.textContent =
-    info.reason === "patience"
-      ? "PATIENCE UP"
-      : info.modeKey === "daily"
-        ? "DAILY CHALLENGE"
-        : "TIME'S UP";
+    info.reason === "quit"
+      ? "RUN ENDED"
+      : info.reason === "patience"
+        ? "PATIENCE UP"
+        : info.modeKey === "daily"
+          ? "DAILY CHALLENGE"
+          : "TIME'S UP";
   ui.overTitle.textContent =
-    info.reason === "patience"
-      ? "小鱼溜走啦！"
-      : info.modeKey === "daily"
-        ? "今日挑战结束！"
-        : isNewBest
-          ? "新纪录，喵！"
-          : "时间到啦！";
+    info.reason === "quit"
+      ? "这局先到这里"
+      : info.reason === "patience"
+        ? "小鱼溜走啦！"
+        : info.modeKey === "daily"
+          ? "今日挑战结束！"
+          : isNewBest
+            ? "新纪录，喵！"
+            : "时间到啦！";
   ui.resultMode.textContent = MODE_LABELS[info.modeKey] ?? MODE_LABELS.classic;
   ui.resultNote.classList.toggle("is-hidden", info.modeKey === "daily");
   ui.resultNote.textContent =

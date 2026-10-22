@@ -5,6 +5,7 @@ import {
   RING_SKINS,
 } from "./cosmetics.js";
 import { CAT_SKINS, DEFAULT_CAT } from "./cat-skins.js";
+import { FISH_SKINS } from "./fish-skins.js";
 import { DAILY_BONUS, DAILY_REWARD, dateKey } from "./daily.js";
 import { readNumber, writeValue } from "./utils.js";
 
@@ -30,6 +31,12 @@ const EQUIPPED_KEYS = new Map([
 const VALID_IDS = new Map(
   [...CATALOGS].map(([kind, catalog]) => [kind, new Set(catalog.map((item) => item.id))]),
 );
+const FISH_IDS = new Set(
+  Object.values(FISH_SKINS)
+    .flat()
+    .map((skin) => skin.id),
+);
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 function catalogFor(kind) {
   return CATALOGS.get(kind) ?? null;
@@ -71,14 +78,71 @@ function sanitiseDaily(record) {
   };
 }
 
-function sanitise(raw) {
+function sanitiseDex(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const dex = {};
+  for (const id of FISH_IDS) {
+    const entry = source[id];
+    const count = Math.max(0, Math.floor(Number(entry?.count) || 0));
+    if (count <= 0) continue;
+    dex[id] = {
+      count,
+      first:
+        typeof entry.first === "string" && DATE_PATTERN.test(entry.first)
+          ? entry.first
+          : "",
+    };
+  }
+  return dex;
+}
+
+function sanitiseRun(entry) {
+  if (!entry || typeof entry !== "object") return null;
+  const score = Math.max(0, Math.floor(Number(entry.score) || 0));
+  const caught = Math.max(0, Math.floor(Number(entry.caught) || 0));
+  if (score === 0 && caught === 0) return null;
+  return {
+    score,
+    caught,
+    goldCaught: Math.max(0, Math.floor(Number(entry.goldCaught) || 0)),
+    bestCombo: Math.max(0, Math.floor(Number(entry.bestCombo) || 0)),
+    fortuneCaught: Math.max(0, Math.floor(Number(entry.fortuneCaught) || 0)),
+    cat: VALID_IDS.get("cat").has(entry.cat) ? entry.cat : DEFAULT_CAT,
+    date:
+      typeof entry.date === "string" && DATE_PATTERN.test(entry.date)
+        ? entry.date
+        : "",
+  };
+}
+
+function compareRuns(a, b) {
+  if (b.score !== a.score) return b.score - a.score;
+  return (a.date || "").localeCompare(b.date || "");
+}
+
+function sanitiseTopRuns(raw) {
+  const source = raw && typeof raw === "object" ? raw : {};
+  const topRuns = {};
+  for (const mode of MODES) {
+    const list = Array.isArray(source[mode]) ? source[mode] : [];
+    topRuns[mode] = list
+      .map(sanitiseRun)
+      .filter(Boolean)
+      .sort(compareRuns)
+      .slice(0, 5);
+  }
+  return topRuns;
+}
+
+function sanitise(raw, options = {}) {
+  const { legacy = true } = options;
   const source = raw && typeof raw === "object" ? raw : {};
   const bests = {};
   for (const mode of MODES) {
     const value = Number(source.bests?.[mode]);
     bests[mode] = Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
   }
-  if (bests.classic === 0) {
+  if (legacy && bests.classic === 0) {
     bests.classic = Math.max(0, Math.floor(readNumber(LEGACY_BEST_KEY, 0)));
   }
 
@@ -91,7 +155,7 @@ function sanitise(raw) {
   const coins = Math.max(0, Math.floor(Number(source.coins) || 0));
 
   return {
-    version: 2,
+    version: 3,
     coins,
     ownedRings,
     ownedPonds,
@@ -101,6 +165,8 @@ function sanitise(raw) {
     cat,
     bests,
     daily: sanitiseDaily(source.daily),
+    dex: sanitiseDex(source.dex),
+    topRuns: sanitiseTopRuns(source.topRuns),
   };
 }
 
@@ -233,6 +299,86 @@ export function updateBest(mode, score) {
   });
 }
 
+export function getDex() {
+  syncFromStorage();
+  return profile.dex;
+}
+
+export function recordFishCatches(counts) {
+  return withProfileLock(() => {
+    const dex = { ...profile.dex };
+    const newDiscoveries = [];
+    let changed = false;
+
+    for (const [id, value] of Object.entries(counts ?? {})) {
+      if (!FISH_IDS.has(id)) continue;
+      const amount = Math.max(0, Math.floor(Number(value) || 0));
+      if (amount === 0) continue;
+      const previous = dex[id];
+      dex[id] = {
+        count: (previous?.count ?? 0) + amount,
+        first: previous?.first || dateKey(),
+      };
+      if (!previous) newDiscoveries.push(id);
+      changed = true;
+    }
+
+    if (changed) {
+      profile = { ...profile, dex };
+      save();
+    }
+    return {
+      newDiscoveries,
+      found: Object.keys(dex).length,
+    };
+  });
+}
+
+export function getTopRuns(mode) {
+  syncFromStorage();
+  return profile.topRuns[mode] ?? [];
+}
+
+export function recordRun(mode, run) {
+  if (!MODES.includes(mode)) return null;
+  return withProfileLock(() => {
+    const entry = sanitiseRun({ ...run, date: run?.date ?? dateKey() });
+    if (!entry) {
+      return { rank: null, entries: profile.topRuns[mode] ?? [], gapToNext: 0 };
+    }
+
+    const entries = [...(profile.topRuns[mode] ?? []), entry]
+      .sort(compareRuns)
+      .slice(0, 5);
+    const rank = entries.indexOf(entry) + 1;
+    const gapToNext =
+      rank > 1 ? Math.max(0, entries[rank - 2].score - entry.score) : 0;
+
+    profile = {
+      ...profile,
+      topRuns: { ...profile.topRuns, [mode]: entries },
+    };
+    save();
+    return { rank: rank || null, entries, gapToNext, entry };
+  });
+}
+
+export function replaceProfile(raw) {
+  return withProfileLock(() => {
+    profile = sanitise(raw, { legacy: false });
+    save();
+    return profile;
+  });
+}
+
+export function resetProfile() {
+  return withProfileLock(() => {
+    profile = sanitise(null, { legacy: false });
+    save();
+    return profile;
+  });
+}
+
 export function getDailyRecord() {
   syncFromStorage();
   const normalised = sanitiseDaily(profile.daily);
@@ -301,9 +447,5 @@ export function claimDaily(completed, challengeKey = dateKey()) {
 }
 
 export function resetProgressForDebug() {
-  return withProfileLock(() => {
-    profile = sanitise(null);
-    save();
-    return profile;
-  });
+  return resetProfile();
 }

@@ -18,8 +18,15 @@ import {
   claimDaily,
   getCoins,
   getProfile,
+  recordFishCatches,
+  recordRun,
   updateBest,
 } from "./progress.js";
+import { motionIntensity, reduceMotionActive } from "./preferences.js";
+import { DexOverlay, refreshDexMenu } from "./dex.js";
+import { BoardOverlay } from "./leaderboard.js";
+import { createPauseMenu } from "./pause-menu.js";
+import { createSettingsPanel } from "./settings-panel.js";
 import { createDailyRandom, dateKey, evaluateGoals, goalValue } from "./daily.js";
 import { Shop } from "./shop.js";
 import { ShareOverlay } from "./share-card.js";
@@ -92,6 +99,10 @@ const state = {
   modalOpen: false,
   runId: 0,
   fortuneUsed: false,
+  fortuneCaught: 0,
+  manualPaused: false,
+  comboSpeed: 1,
+  runDex: {},
 };
 
 const modeUi = createModeUi({ state, ui });
@@ -107,6 +118,7 @@ const fishList = spawner.fishList;
 
 const fortuneRush = new FortuneRush({
   onCatch(fish) {
+    state.fortuneCaught += 1;
     catchFish(fish, { silent: true, showText: true });
   },
   onFinish(count) {
@@ -145,6 +157,52 @@ const shop = new Shop({
 });
 
 const shareOverlay = new ShareOverlay({ ui, audio, onModalChange });
+
+const dexOverlay = new DexOverlay({ ui, audio, onModalChange });
+
+const boardOverlay = new BoardOverlay({
+  ui,
+  audio,
+  onModalChange,
+  getMode: () => state.modeKey,
+});
+
+const settingsPanel = createSettingsPanel({
+  ui,
+  audio,
+  onModalChange,
+  onProfileChanged: () => refreshProfileUi(),
+});
+
+const pauseMenu = createPauseMenu({
+  ui,
+  state,
+  audio,
+  net,
+  syncNetUi,
+  onPauseChange(paused) {
+    state.manualPaused = paused;
+    state.paused = paused || document.hidden;
+  },
+  onRestart: () => restartGame(),
+  onQuit: () => {
+    void endGame("quit");
+  },
+  onOpenSettings: () => settingsPanel.open(),
+  resetFrameClock: () => resetFrameClock(),
+});
+
+function resetFrameClock() {
+  lastFrame = performance.now();
+}
+
+function refreshProfileUi() {
+  applyCosmetics();
+  refreshModeUi();
+  syncWallet(getCoins());
+  refreshDexMenu(ui);
+  syncHud(state, true);
+}
 
 function getBounds() {
   return {
@@ -220,12 +278,17 @@ function spawnKingFish() {
 
 function showMenu() {
   window.clearTimeout(endOverlayTimer);
+  pauseMenu.reset();
   state.mode = "menu";
   state.paused = false;
+  state.manualPaused = false;
   state.daily = null;
   state.touchPoint = null;
   state.modalOpen = false;
   state.fortuneUsed = false;
+  state.fortuneCaught = 0;
+  state.comboSpeed = 1;
+  state.runDex = {};
   cat.finishRound();
   net.cancel();
   fortuneRush.cancel();
@@ -270,6 +333,7 @@ function showMenu() {
 function startGame() {
   if (state.mode === "playing" || state.modalOpen) return;
   window.clearTimeout(endOverlayTimer);
+  pauseMenu.reset();
   audio.init();
   lastResult = null;
 
@@ -287,6 +351,7 @@ function startGame() {
   state.bubbleTimer = 1;
   state.shake = 0;
   state.paused = false;
+  state.manualPaused = false;
   state.bonusTimer = 0;
   state.magnetTimer = 0;
   state.hitStop = 0;
@@ -297,6 +362,9 @@ function startGame() {
   state.endlessTime = 0;
   state.lowWarned = false;
   state.fortuneUsed = false;
+  state.fortuneCaught = 0;
+  state.comboSpeed = 1;
+  state.runDex = {};
   state.best = bestFor(state.modeKey);
   state.daily = state.modeKey === "daily" ? modeUi.makeDailyState() : null;
   state.random =
@@ -357,6 +425,13 @@ function startGame() {
   audio.start();
 }
 
+function restartGame() {
+  if (state.mode !== "playing") return;
+  pauseMenu.reset();
+  state.mode = "menu";
+  startGame();
+}
+
 async function endGame(reason = "time") {
   if (state.mode !== "playing") return;
   const run = {
@@ -370,10 +445,18 @@ async function endGame(reason = "time") {
     endlessTime: state.endlessTime,
     endlessLimit: state.endlessLimit,
     dailyChallenge: state.daily?.challenge ?? null,
+    fortuneUsed: state.fortuneUsed,
+    fortuneCaught: state.fortuneCaught,
+    runDex: { ...state.runDex },
+    cat: getProfile().cat,
   };
 
+  pauseMenu.reset();
   state.mode = "over";
   state.lastEndReason = reason;
+  state.paused = false;
+  state.manualPaused = false;
+  state.comboSpeed = 1;
   state.timeLeft = Math.max(0, state.timeLeft);
   state.combo = 0;
   state.comboTimer = 0;
@@ -401,6 +484,9 @@ async function endGame(reason = "time") {
     run.dailyChallenge.key !== dateKey();
   const isNewBest = dailyExpired ? false : await updateBest(run.modeKey, run.score);
   await addCoins(run.runCoins);
+  const dexResult = await recordFishCatches(run.runDex);
+  const board = await recordRun(run.modeKey, run);
+  refreshDexMenu(ui);
 
   let dailyInfo = null;
   if (run.modeKey === "daily" && run.dailyChallenge) {
@@ -435,6 +521,11 @@ async function endGame(reason = "time") {
     coinsEarned,
     wallet,
     daily: dailyInfo,
+    localRank: board?.rank ?? null,
+    localGap: board?.gapToNext ?? 0,
+    dexNew: dexResult.newDiscoveries.length,
+    fortuneUsed: run.fortuneUsed,
+    fortuneCaught: run.fortuneCaught,
   };
   const stars = fillResults(state, isNewBest, info);
   lastResult = buildShareSnapshot(state, stars, coinsEarned, isNewBest, dailyInfo);
@@ -448,8 +539,10 @@ async function endGame(reason = "time") {
     ui.overOverlay.setAttribute("aria-hidden", "false");
     ui.overOverlay.inert = false;
     ui.replayBtn.focus({ preventScroll: true });
-    particles.confetti(width);
-    if (stars === 3) particles.heartRain(width);
+    if (!reduceMotionActive()) {
+      particles.confetti(width);
+      if (stars === 3) particles.heartRain(width);
+    }
     if (isNewBest) audio.newBest();
     if (dailyInfo?.claim.coinsEarned > 0) {
       window.setTimeout(() => audio.dailyComplete(), 700);
@@ -468,6 +561,9 @@ function catchFish(fish, options = {}) {
   state.score += gain;
   state.caught += 1;
   state.runCoins += fish.spec.coins;
+  if (fish.skin?.id) {
+    state.runDex[fish.skin.id] = (state.runDex[fish.skin.id] ?? 0) + 1;
+  }
   if (fish.type === "gold") state.goldCaught += 1;
   cat.triggerCatch();
   state.shake = Math.max(state.shake, fish.isKing ? 11 : fish.isGold ? 6 : 2.5);
@@ -510,7 +606,7 @@ function catchFish(fish, options = {}) {
   if (state.combo === CONFIG.bonusCombo) {
     state.bonusTimer = CONFIG.bonusDuration;
     cat.triggerStarEyes(CONFIG.starEyesDuration + 0.8);
-    particles.heartRain(width);
+    if (!reduceMotionActive()) particles.heartRain(width);
     showBanner({
       kicker: "COMBO ×10",
       title: "爱心雨！",
@@ -715,6 +811,12 @@ function update(dt) {
   state.timeLeft = Math.max(0, state.timeLeft - dt);
   state.comboTimer = Math.max(0, state.comboTimer - dt);
   if (state.comboTimer <= 0 && state.combo !== 0) state.combo = 0;
+  state.comboSpeed =
+    1 +
+    Math.min(
+      CONFIG.comboSpeedMax,
+      Math.max(0, state.combo) * CONFIG.comboSpeedStep,
+    );
   state.hintTimer = Math.max(0, state.hintTimer - dt);
   if (state.hintTimer <= 0) ui.hint.classList.remove("is-visible");
 
@@ -738,7 +840,7 @@ function update(dt) {
     bounds,
     keysX: direction.x,
     keysY: direction.y,
-    speedFactor: net.charging ? 0.46 : 1,
+    speedFactor: (net.charging ? 0.46 : 1) * state.comboSpeed,
   });
 
   for (const event of cat.drainEvents()) {
@@ -785,8 +887,9 @@ function render() {
   ctx.clearRect(0, 0, width, height);
 
   ctx.save();
-  if (state.shake > 0) {
-    ctx.translate(rand(-state.shake, state.shake) * 0.35, rand(-state.shake, state.shake) * 0.35);
+  const shake = state.shake * motionIntensity();
+  if (shake > 0.2) {
+    ctx.translate(rand(-shake, shake) * 0.35, rand(-shake, shake) * 0.35);
   }
 
   background.draw(ctx);
@@ -827,6 +930,7 @@ function init() {
   drawZhaocaiPortrait(ui.fortuneMenuAvatar, 2.4);
   setupSecretCommand({ ui, audio });
   applyCosmetics();
+  refreshDexMenu(ui);
   resize();
   state.best = bestFor(state.modeKey);
   spawner.setRandom(Math.random);
@@ -848,9 +952,10 @@ function init() {
     showMenu,
     refreshModeUi,
     resize,
-    resetFrameClock: () => {
-      lastFrame = performance.now();
-    },
+    openDex: () => dexOverlay.open(),
+    openBoard: () => boardOverlay.open(),
+    openSettings: () => settingsPanel.open(),
+    resetFrameClock: () => resetFrameClock(),
   });
   setupInput({
     canvas,
@@ -864,7 +969,7 @@ function init() {
     releaseNet,
     cancelNet,
     requestStart,
-    isBlocked: () => state.modalOpen,
+    isBlocked: () => state.modalOpen || state.manualPaused,
     onTouchPoint(point) {
       state.touchPoint = point;
     },
@@ -891,6 +996,10 @@ function init() {
     getLastResult: () => lastResult,
     fortuneRush,
     useFortune: useFortuneRush,
+    pauseMenu,
+    dexOverlay,
+    boardOverlay,
+    settingsPanel,
   });
   requestAnimationFrame((now) => {
     lastFrame = now;

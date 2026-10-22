@@ -1,13 +1,20 @@
-import { readBool, writeValue } from "./utils.js";
+import { getPreferences, updatePreferences } from "./preferences.js";
+import { clamp, readBool, writeValue } from "./utils.js";
 
 const SOUND_KEY = "neko-fish-sound";
+const BASE_GAIN = 0.15;
 
 export class AudioKit {
   constructor() {
     this.enabled = readBool(SOUND_KEY, true);
+    this.volume = getPreferences().volume;
     this.ctx = null;
     this.master = null;
     this.noiseBuffer = null;
+  }
+
+  get gainValue() {
+    return BASE_GAIN * (this.volume / 100);
   }
 
   init() {
@@ -18,7 +25,7 @@ export class AudioKit {
         if (!Context) return;
         this.ctx = new Context();
         this.master = this.ctx.createGain();
-        this.master.gain.value = 0.15;
+        this.master.gain.value = this.gainValue;
         this.master.connect(this.ctx.destination);
       }
       if (this.ctx.state === "suspended") {
@@ -40,6 +47,20 @@ export class AudioKit {
     this.setEnabled(!this.enabled);
     if (this.enabled) this.ui();
     return this.enabled;
+  }
+
+  setVolume(percent) {
+    this.volume = Math.round(clamp(Number(percent) || 0, 0, 100));
+    updatePreferences({ volume: this.volume });
+    if (this.master) {
+      this.master.gain.value = this.gainValue;
+    }
+    return this.volume;
+  }
+
+  syncPreferences() {
+    this.volume = getPreferences().volume;
+    if (this.master) this.master.gain.value = this.gainValue;
   }
 
   get ready() {

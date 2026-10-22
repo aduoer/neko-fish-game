@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/features-shop.css" />
   <link rel="stylesheet" href="css/features-share.css" />
   <link rel="stylesheet" href="css/features-fortune.css" />
+  <link rel="stylesheet" href="css/features-meta.css" />
   <link rel="stylesheet" href="css/features-responsive.css" />
 </head>
 <body>
@@ -50,11 +51,17 @@
         <div class="combo-tag" id="comboTag">
           <span id="comboValue">×2</span>
           <span class="combo-word">连击</span>
+          <span class="combo-speed" id="comboSpeed">+0%</span>
           <i class="combo-track"><i id="comboBar"></i></i>
         </div>
       </div>
 
       <div class="hud-side hud-right">
+        <button class="icon-btn pause-btn" id="pauseBtn" type="button" aria-label="暂停游戏（P 或 Esc）" aria-keyshortcuts="P Escape">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8 5.5v13M16 5.5v13" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" />
+          </svg>
+        </button>
         <button class="icon-btn" id="soundBtn" type="button" aria-label="关闭声音" aria-pressed="true">
           <svg class="icon-sound-on" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M4.5 9.3h3L12 5.5v13l-4.5-3.8h-3z" fill="currentColor" />
@@ -184,6 +191,19 @@
         </button>
         <p class="best-line">历史最佳 <strong id="menuBest">0</strong> 分</p>
 
+        <div class="menu-tools">
+          <button class="menu-tool" id="dexBtn" type="button">
+            <span aria-hidden="true">🐟</span> 小鱼图鉴
+            <small id="dexMenuCount">0/13</small>
+          </button>
+          <button class="menu-tool" id="boardBtn" type="button">
+            <span aria-hidden="true">🏆</span> 本地榜
+          </button>
+          <button class="menu-tool" id="settingsBtn" type="button">
+            <span aria-hidden="true">⚙</span> 设置
+          </button>
+        </div>
+
         <div class="secret-zone">
           <button class="secret-peek" id="secretBtn" type="button" aria-label="喵喵的秘密入口" aria-expanded="false" aria-controls="secretConsole">🐾</button>
         </div>
@@ -211,6 +231,7 @@
         </div>
         <p class="result-mode" id="resultMode">经典 60 秒</p>
         <p class="result-hook" id="resultHook"></p>
+        <p class="result-extra" id="resultExtra"></p>
         <div class="result-score">
           <span>本局得分</span>
           <strong id="finalScore">0</strong>
@@ -242,6 +263,89 @@
           <button class="soft-btn" id="shareBtn" type="button">分享成绩卡</button>
           <button class="soft-btn" id="homeBtn" type="button">回到首页</button>
         </div>
+      </div>
+    </section>
+
+    <section class="overlay pause-overlay is-hidden" id="pauseOverlay" role="dialog" aria-modal="true" aria-labelledby="pauseTitle" aria-hidden="true">
+      <div class="card pause-card">
+        <div class="eyebrow">TAKE A BREATH</div>
+        <h2 id="pauseTitle">歇一会儿</h2>
+        <p class="lead">小猫在荷叶上等你，准备好了再继续。</p>
+        <div class="pause-actions">
+          <button class="primary-btn" id="pauseResumeBtn" type="button">
+            <span>继续捞鱼</span>
+            <span class="btn-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="soft-btn" id="pauseSettingsBtn" type="button">设置</button>
+          <button class="soft-btn" id="pauseRestartBtn" type="button">重新开始</button>
+          <button class="text-btn" id="pauseQuitBtn" type="button">结束本局并结算</button>
+        </div>
+        <p class="pause-note">按 P 或 Esc 也可以继续</p>
+      </div>
+    </section>
+
+    <section class="overlay settings-overlay is-hidden" id="settingsOverlay" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-hidden="true">
+      <div class="card settings-card">
+        <button class="overlay-close" id="settingsCloseBtn" type="button" aria-label="关闭设置">×</button>
+        <div class="eyebrow">OPTIONS</div>
+        <h2 id="settingsTitle">设置</h2>
+
+        <div class="settings-group">
+          <div class="settings-row">
+            <label for="volumeRange">音效音量</label>
+            <output id="volumeValue" for="volumeRange">100%</output>
+          </div>
+          <input class="volume-range" id="volumeRange" type="range" min="0" max="100" step="5" value="100" />
+          <div class="settings-row">
+            <label for="motionSelect">动态效果</label>
+            <select class="settings-select" id="motionSelect">
+              <option value="system">跟随系统</option>
+              <option value="reduce">减少动效</option>
+              <option value="normal">保持完整动效</option>
+            </select>
+          </div>
+          <p class="settings-hint">减少动效会关闭震屏和部分粒子，游戏判定不受影响。</p>
+        </div>
+
+        <div class="settings-group">
+          <h3>存档</h3>
+          <p class="settings-hint">进度保存在本机浏览器里。换设备前可以先导出存档。</p>
+          <div class="settings-actions">
+            <button class="soft-btn" id="saveExportBtn" type="button">导出存档</button>
+            <button class="soft-btn" id="saveImportBtn" type="button">导入存档</button>
+            <button class="soft-btn danger-btn" id="saveResetBtn" type="button">重置进度</button>
+          </div>
+          <input class="sr-only" id="saveImportFile" type="file" accept="application/json,.json" tabindex="-1" aria-hidden="true" />
+          <p class="save-status" id="saveStatus" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="overlay dex-overlay is-hidden" id="dexOverlay" role="dialog" aria-modal="true" aria-labelledby="dexTitle" aria-hidden="true">
+      <div class="card dex-card">
+        <button class="overlay-close" id="dexCloseBtn" type="button" aria-label="关闭图鉴">×</button>
+        <div class="eyebrow">FISH ALMANAC</div>
+        <h2 id="dexTitle">小鱼图鉴</h2>
+        <p class="dex-progress">已发现 <strong id="dexFound">0</strong> / <span id="dexTotal">13</span> 种</p>
+        <p class="dex-badge" id="dexBadge" hidden>✦ 图鉴大师 ✦</p>
+        <div class="dex-grid" id="dexGrid"></div>
+        <p class="dex-hint" id="dexProgressText"></p>
+      </div>
+    </section>
+
+    <section class="overlay board-overlay is-hidden" id="boardOverlay" role="dialog" aria-modal="true" aria-labelledby="boardTitle" aria-hidden="true">
+      <div class="card board-card">
+        <button class="overlay-close" id="boardCloseBtn" type="button" aria-label="关闭本地榜">×</button>
+        <div class="eyebrow">POND RECORDS</div>
+        <h2 id="boardTitle">本地榜</h2>
+        <p class="board-hint">只保存在这台设备上，每种模式取最高的 5 局。</p>
+        <div class="board-tabs" id="boardTabs" role="group" aria-label="榜单模式">
+          <button type="button" data-board-mode="classic" class="is-active" aria-pressed="true">经典</button>
+          <button type="button" data-board-mode="daily" aria-pressed="false">每日</button>
+          <button type="button" data-board-mode="endless" aria-pressed="false">无尽</button>
+        </div>
+        <ol class="board-list" id="boardList"></ol>
+        <p class="board-empty is-hidden" id="boardEmpty"></p>
       </div>
     </section>
 

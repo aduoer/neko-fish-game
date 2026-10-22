@@ -89,7 +89,7 @@ export function setupInput({
   }
 
   function handlePointerMove(event) {
-    if (state.mode !== "playing") return;
+    if (state.mode !== "playing" || isBlocked?.()) return;
 
     if (event.pointerType === "mouse") {
       const point = pointerPosition(event);

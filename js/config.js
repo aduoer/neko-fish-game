@@ -6,6 +6,8 @@ export const CONFIG = Object.freeze({
   dashSpeed: 1050,
   comboWindow: 2.6,
   maxMultiplier: 5,
+  comboSpeedStep: 0.025,
+  comboSpeedMax: 0.5,
   initialFish: 8,
   maxFish: 13,
   maxFishFrenzy: 19,
